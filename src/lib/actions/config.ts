@@ -99,10 +99,16 @@ export async function importarPostulaciones(
 
 /**
  * Borra TODAS las postulaciones (y, en cascada, sus evaluaciones y
- * bonificaciones manuales asociadas, por la referencia "on delete cascade"
- * del esquema). Pensado para limpiar datos de prueba antes de una
- * convocatoria real -- es irreversible, por eso exige admin y una palabra
- * de confirmación exacta desde la interfaz.
+ * bonificaciones manuales asociadas). Pensado para limpiar datos de prueba
+ * antes de una convocatoria real -- es irreversible, por eso exige admin y
+ * una palabra de confirmación exacta desde la interfaz.
+ *
+ * Se usa TRUNCATE ... RESTART IDENTITY en vez de DELETE para que, además de
+ * borrar las filas, el contador de ID vuelva a partir en 1 la próxima vez
+ * que se importe un CSV (con DELETE el contador seguía subiendo aunque la
+ * tabla quedara vacía). CASCADE incluye automáticamente a evaluaciones y
+ * bonificaciones_manuales, que dependen de postulaciones, y también
+ * reinicia sus propios contadores de ID.
  */
 export async function eliminarTodasLasPostulaciones(confirmacion: string): Promise<{ eliminadas: number }> {
   await requerirAdmin();
@@ -110,14 +116,16 @@ export async function eliminarTodasLasPostulaciones(confirmacion: string): Promi
     throw new Error('Escribe exactamente "ELIMINAR" para confirmar.');
   }
 
-  const rows = await sql`delete from postulaciones returning id`;
+  const [{ total }] = await sql<{ total: number }[]>`select count(*)::int as total from postulaciones`;
+
+  await sql`truncate table postulaciones restart identity cascade`;
 
   revalidatePath("/postulaciones");
   revalidatePath("/evaluacion");
   revalidatePath("/resultados");
   revalidatePath("/estadisticas");
   revalidatePath("/configuracion");
-  return { eliminadas: rows.length };
+  return { eliminadas: total };
 }
 
 // --------------------------------- Evaluadores -------------------------------
