@@ -23,7 +23,7 @@
  * cálculo de una sola postulación.
  */
 import { sql } from "@/lib/db";
-import { getConfig } from "@/lib/config-store";
+import { getConfig, getConfigBonificacion } from "@/lib/config-store";
 import {
   ETAPA_1,
   ETAPAS_POR_ID,
@@ -237,7 +237,7 @@ export async function estadoAdmisibilidad(
 export async function calcularBonificacion(
   postulacion: Postulacion
 ): Promise<{ bono: number; detalle: Record<string, number> }> {
-  const config = await getConfig<ConfigBonificacion>("bonificacion");
+  const config = await getConfigBonificacion();
 
   const filasManuales = await sql<FilaBonificacionManual[]>`
     select valor_1_a_5, madurez_tecnologica_1_a_5, escalabilidad_1_a_5, traccion_1_a_5
@@ -263,7 +263,7 @@ export interface ResultadoFinal {
 export async function calcularResultadoFinal(postulacion: Postulacion): Promise<ResultadoFinal> {
   const [pesoEtapas, configBono, evaluaciones, filasManuales] = await Promise.all([
     getConfig<Record<string, number>>("peso_etapas"),
-    getConfig<ConfigBonificacion>("bonificacion"),
+    getConfigBonificacion(),
     sql<Evaluacion[]>`select * from evaluaciones where postulacion_id = ${postulacion.id}`,
     sql<FilaBonificacionManual[]>`
       select valor_1_a_5, madurez_tecnologica_1_a_5, escalabilidad_1_a_5, traccion_1_a_5
@@ -309,7 +309,7 @@ export async function tablaRanking(postulaciones: Postulacion[]): Promise<FilaRa
 
   const [pesoEtapas, configBono, todasEvaluaciones, todasBonificaciones] = await Promise.all([
     getConfig<Record<string, number>>("peso_etapas"),
-    getConfig<ConfigBonificacion>("bonificacion"),
+    getConfigBonificacion(),
     sql<Evaluacion[]>`select * from evaluaciones where postulacion_id = any(${ids})`,
     sql<(FilaBonificacionManual & { postulacion_id: number })[]>`
       select postulacion_id, valor_1_a_5, madurez_tecnologica_1_a_5, escalabilidad_1_a_5, traccion_1_a_5
