@@ -23,9 +23,9 @@ export default async function LoginPage() {
       <Image
         src="/logo-incubba.png"
         alt="Incubba Ñuble UBB"
-        width={280}
-        height={94}
-        style={{ width: "auto", height: 56 }}
+        width={400}
+        height={134}
+        style={{ width: "auto", height: 90 }}
         priority
       />
       <div className="grid md:grid-cols-2 gap-6 max-w-4xl w-full">
@@ -53,9 +53,9 @@ export default async function LoginPage() {
       <Image
         src="/logo-financiadores.png"
         alt="Ejecuta: VRIP, Dirección de Innovación UBB. Proyecto apoyado por CORFO"
-        width={480}
-        height={161}
-        style={{ width: "auto", height: 60 }}
+        width={700}
+        height={235}
+        style={{ width: "auto", height: 90 }}
       />
     </div>
   );
