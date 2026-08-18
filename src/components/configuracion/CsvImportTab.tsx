@@ -1,9 +1,10 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import Papa from "papaparse";
 import { FIELD_DEFINITIONS, sugerirMapeo } from "@/lib/importer";
-import { importarPostulaciones } from "@/lib/actions/config";
+import { importarPostulaciones, eliminarTodasLasPostulaciones } from "@/lib/actions/config";
 
 export function CsvImportTab() {
   const [isPending, startTransition] = useTransition();
@@ -110,6 +111,88 @@ export function CsvImportTab() {
           </button>
         </>
       ) : null}
+
+      <ZonaPeligro />
+    </div>
+  );
+}
+
+function ZonaPeligro() {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [abierto, setAbierto] = useState(false);
+  const [confirmacion, setConfirmacion] = useState("");
+  const [mensaje, setMensaje] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function eliminarTodo() {
+    setMensaje(null);
+    setError(null);
+    startTransition(async () => {
+      try {
+        const res = await eliminarTodasLasPostulaciones(confirmacion);
+        setMensaje(`Se eliminaron ${res.eliminadas} postulaciones (junto con sus evaluaciones y bonificaciones).`);
+        setConfirmacion("");
+        setAbierto(false);
+        router.refresh();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "No se pudo eliminar.");
+      }
+    });
+  }
+
+  return (
+    <div className="mt-8 rounded-xl border border-red-200 bg-red-50 p-4">
+      <p className="font-semibold text-red-700 text-sm mb-1">⚠️ Zona de peligro</p>
+      <p className="text-sm text-red-700 mb-3">
+        Borra TODAS las postulaciones importadas, junto con las evaluaciones y bonificaciones ya
+        registradas para ellas. Úsalo solo para limpiar datos de prueba antes de una convocatoria
+        real — esta acción no se puede deshacer.
+      </p>
+
+      {!abierto ? (
+        <button
+          onClick={() => setAbierto(true)}
+          className="rounded-lg border border-red-400 text-red-700 text-sm font-semibold px-4 py-2 hover:bg-red-100"
+        >
+          Eliminar todas las postulaciones
+        </button>
+      ) : (
+        <div>
+          <p className="text-sm text-red-700 mb-2">
+            Para confirmar, escribe <strong>ELIMINAR</strong> en el siguiente campo:
+          </p>
+          <input
+            type="text"
+            value={confirmacion}
+            onChange={(e) => setConfirmacion(e.target.value)}
+            className="rounded-lg border border-red-300 px-3 py-2 text-sm mb-3 w-48"
+            placeholder="ELIMINAR"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={eliminarTodo}
+              disabled={isPending || confirmacion !== "ELIMINAR"}
+              className="rounded-lg bg-red-600 text-white text-sm font-semibold px-4 py-2 disabled:opacity-40"
+            >
+              {isPending ? "Eliminando..." : "Confirmar eliminación definitiva"}
+            </button>
+            <button
+              onClick={() => {
+                setAbierto(false);
+                setConfirmacion("");
+                setError(null);
+              }}
+              className="rounded-lg border border-gris-borde text-sm px-4 py-2"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {mensaje ? <p className="text-sm text-green-700 mt-3">{mensaje}</p> : null}
+      {error ? <p className="text-sm text-red-700 mt-3">{error}</p> : null}
     </div>
   );
 }
