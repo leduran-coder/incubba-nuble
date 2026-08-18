@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { Etapa } from "@/lib/rubric";
+import type { BonificacionManualValores } from "@/lib/types";
 import { guardarBonificacionManual, guardarEvaluacionEtapa } from "@/lib/actions/evaluacion";
 
 interface EtapaData {
@@ -17,7 +18,7 @@ interface Props {
   postulacionId: number;
   etapasData: EtapaData[];
   admisibilidad: { estado: "Admisible" | "No admisible" | "Pendiente"; puntaje: number | null };
-  bonoManual: { valor_1_a_5: number | null; comentario: string | null } | null;
+  bonoManual: BonificacionManualValores | null;
   bonoCalculado: { bono: number; detalle: Record<string, number> };
   resumenAutomatico: {
     tipo_potencial_innovador: string | null;
@@ -200,6 +201,46 @@ function EtapaForm({ postulacionId, data }: { postulacionId: number; data: Etapa
   );
 }
 
+interface FactorSlider {
+  id: "madurezTecnologica" | "escalabilidadModelo" | "traccionTemprana" | "ambicionProyeccion";
+  titulo: string;
+  pregunta: string;
+  ancla1: string;
+  ancla5: string;
+}
+
+const FACTORES_SLIDER: FactorSlider[] = [
+  {
+    id: "madurezTecnologica",
+    titulo: "Madurez tecnológica y propiedad intelectual",
+    pregunta: "¿Qué tan madura y protegida está la tecnología o solución (escala TRL simplificada)?",
+    ancla1: "TRL 1-2: idea o investigación conceptual, sin prototipo",
+    ancla5: "TRL 9: probada en operación comercial; PI registrada o en trámite",
+  },
+  {
+    id: "escalabilidadModelo",
+    titulo: "Escalabilidad del modelo de negocio",
+    pregunta:
+      "¿Qué tan bajo es el costo de atender un cliente adicional, y qué tan replicable es el modelo fuera de Ñuble?",
+    ancla1: "Alto costo marginal; difícil de replicar fuera de la comuna",
+    ancla5: "Costo marginal bajo (plataforma/software), replicable y con efectos de red",
+  },
+  {
+    id: "traccionTemprana",
+    titulo: "Tracción temprana validada",
+    pregunta: "¿Qué tanta evidencia concreta hay de demanda ya validada (no solo proyectada)?",
+    ancla1: "Sin evidencia de demanda validada; solo hipótesis",
+    ancla5: "Pilotos o ventas con clientes ancla, alianzas ya firmadas",
+  },
+  {
+    id: "ambicionProyeccion",
+    titulo: "Ambición y credibilidad de la proyección a 3 años",
+    pregunta: "¿Qué tan creíble (no solo ambiciosa) es la proyección de crecimiento del equipo?",
+    ancla1: "Poco creíble o poco ambiciosa",
+    ancla5: "Muy creíble y muy ambiciosa, con capacidad real de ejecutarla",
+  },
+];
+
 function BonoTab({
   postulacionId,
   bonoManual,
@@ -208,21 +249,26 @@ function BonoTab({
   puntajeMaximoBono,
 }: {
   postulacionId: number;
-  bonoManual: { valor_1_a_5: number | null; comentario: string | null } | null;
+  bonoManual: BonificacionManualValores | null;
   bonoCalculado: { bono: number; detalle: Record<string, number> };
   resumenAutomatico: Props["resumenAutomatico"];
   puntajeMaximoBono: number;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [valor, setValor] = useState(bonoManual?.valor_1_a_5 ?? 3);
+  const [valores, setValores] = useState({
+    madurezTecnologica: bonoManual?.madurez_tecnologica_1_a_5 ?? 3,
+    escalabilidadModelo: bonoManual?.escalabilidad_1_a_5 ?? 3,
+    traccionTemprana: bonoManual?.traccion_1_a_5 ?? 3,
+    ambicionProyeccion: bonoManual?.valor_1_a_5 ?? 3,
+  });
   const [comentario, setComentario] = useState(bonoManual?.comentario ?? "");
   const [guardado, setGuardado] = useState(false);
 
   function guardar() {
     setGuardado(false);
     startTransition(async () => {
-      await guardarBonificacionManual(postulacionId, valor, comentario);
+      await guardarBonificacionManual(postulacionId, valores, comentario);
       setGuardado(true);
       router.refresh();
     });
@@ -234,11 +280,11 @@ function BonoTab({
         Bonificación adicional (no exigida literalmente por las bases) que premia el potencial
         dinámico real del proyecto: capacidad de crecer a tasas superiores al 20% anual, según la
         definición de CORFO citada en el punto 4.1 de las bases. Los factores automáticos se toman
-        de lo declarado en el formulario; el factor cualitativo lo calificas tú.
+        de lo declarado en el formulario; los 4 factores cualitativos los califica el panel.
       </p>
 
       <p className="font-semibold text-gris-texto mb-2">Factores automáticos (declarados por el postulante)</p>
-      <div className="grid sm:grid-cols-3 gap-3 mb-5">
+      <div className="grid sm:grid-cols-3 gap-3 mb-6">
         <div className="metric-card">
           <div className="metric-label">Tipo de potencial innovador</div>
           <div className="metric-value text-lg">{resumenAutomatico.tipo_potencial_innovador ?? "—"}</div>
@@ -253,31 +299,37 @@ function BonoTab({
         </div>
       </div>
 
-      <p className="font-semibold text-gris-texto mb-1">Factor cualitativo del panel</p>
-      <p className="text-sm text-gris-muted mb-3">
-        ¿Qué tan ambiciosa y creíble es la proyección de crecimiento a 3 años del proyecto?
+      <p className="font-semibold text-gris-texto mb-1">Factores cualitativos del panel</p>
+      <p className="text-sm text-gris-muted mb-4">
+        Califica cada uno de 1 a 5 según la evidencia presentada en la postulación.
       </p>
 
-      <div className="mb-3">
-        <input
-          type="range"
-          min={1}
-          max={5}
-          value={valor}
-          onChange={(e) => setValor(Number(e.target.value))}
-          className="w-full"
-        />
-        <div className="flex justify-between text-xs text-gris-muted">
-          <span>1 = poco creíble/ambiciosa</span>
-          <span className="font-bold text-morado-vibrante text-base">{valor}</span>
-          <span>5 = muy creíble y ambiciosa</span>
-        </div>
+      <div className="flex flex-col gap-5 mb-4">
+        {FACTORES_SLIDER.map((factor) => (
+          <div key={factor.id}>
+            <label className="block font-semibold text-gris-texto mb-1">{factor.titulo}</label>
+            <p className="text-xs text-gris-muted mb-2">{factor.pregunta}</p>
+            <input
+              type="range"
+              min={1}
+              max={5}
+              value={valores[factor.id]}
+              onChange={(e) => setValores((v) => ({ ...v, [factor.id]: Number(e.target.value) }))}
+              className="w-full"
+            />
+            <div className="flex justify-between text-xs text-gris-muted">
+              <span>1 = {factor.ancla1}</span>
+              <span className="font-bold text-morado-vibrante text-base">{valores[factor.id]}</span>
+              <span className="text-right">5 = {factor.ancla5}</span>
+            </div>
+          </div>
+        ))}
       </div>
 
       <textarea
         value={comentario}
         onChange={(e) => setComentario(e.target.value)}
-        placeholder="Justificación de esta calificación (opcional)"
+        placeholder="Justificación de estas calificaciones (opcional)"
         rows={2}
         className="w-full rounded-lg border border-gris-borde px-3 py-2 text-sm mb-4"
       />
