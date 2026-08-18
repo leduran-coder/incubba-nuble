@@ -37,6 +37,8 @@ export function PostulacionesExplorer({ postulaciones }: { postulaciones: Postul
   }, [postulaciones, fProvincia, fComuna, fGenero, fTipo]);
 
   const seleccionada = postulaciones.find((p) => p.id === seleccionId) ?? null;
+  const hayFiltrosActivos =
+    fProvincia.length > 0 || fComuna.length > 0 || fGenero.length > 0 || fTipo.length > 0;
 
   function verFicha(id: number) {
     setSeleccionId(id);
@@ -76,6 +78,20 @@ export function PostulacionesExplorer({ postulaciones }: { postulaciones: Postul
               <MultiFiltro etiqueta="Género" opciones={opciones.genero} valor={fGenero} onChange={setFGenero} />
               <MultiFiltro etiqueta="Tipo de emprendimiento" opciones={opciones.tipo} valor={fTipo} onChange={setFTipo} />
             </div>
+            {hayFiltrosActivos ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setFProvincia([]);
+                  setFComuna([]);
+                  setFGenero([]);
+                  setFTipo([]);
+                }}
+                className="mt-3 text-sm font-semibold text-red-600 hover:underline"
+              >
+                ✕ Restablecer filtros
+              </button>
+            ) : null}
           </details>
 
           <div className="flex justify-between items-center mb-3">
@@ -176,7 +192,6 @@ function MultiFiltro({
 }
 
 function FichaPostulacion({ p }: { p: Postulacion }) {
-  const videoEsUrl = p.video_link?.startsWith("http");
   return (
     <div>
       <div className="grid md:grid-cols-2 gap-4 mb-4">
@@ -209,20 +224,8 @@ function FichaPostulacion({ p }: { p: Postulacion }) {
             👥 Equipo y Pitch
           </h4>
           <Dato label="Integrantes" valor={p.num_personas_equipo ? `${p.num_personas_equipo} personas` : "—"} />
-          <p className="text-sm my-1.5">
-            <strong>Video Pitch:</strong>{" "}
-            {p.video_link ? (
-              videoEsUrl ? (
-                <a href={p.video_link} target="_blank" rel="noreferrer" className="text-blue-600 font-semibold">
-                  Ver video ↗
-                </a>
-              ) : (
-                p.video_link
-              )
-            ) : (
-              "No registrado"
-            )}
-          </p>
+          <EnlaceVideo etiqueta="Video Pitch" enlace={p.video_link} />
+          <EnlaceVideo etiqueta="Enlace alternativo" enlace={p.video_link_alternativo} />
         </div>
       </div>
 
@@ -247,6 +250,26 @@ function Dato({ label, valor }: { label: string; valor: string | null | undefine
   return (
     <p className="text-sm my-1.5">
       <strong>{label}:</strong> {valor || "—"}
+    </p>
+  );
+}
+
+function EnlaceVideo({ etiqueta, enlace }: { etiqueta: string; enlace: string | null | undefined }) {
+  const esUrl = enlace?.startsWith("http");
+  return (
+    <p className="text-sm my-1.5">
+      <strong>{etiqueta}:</strong>{" "}
+      {enlace ? (
+        esUrl ? (
+          <a href={enlace} target="_blank" rel="noreferrer" className="text-blue-600 font-semibold">
+            Ver video ↗
+          </a>
+        ) : (
+          enlace
+        )
+      ) : (
+        "No registrado"
+      )}
     </p>
   );
 }
