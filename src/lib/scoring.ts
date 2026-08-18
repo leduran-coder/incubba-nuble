@@ -6,6 +6,21 @@
  * para que el equipo gestor pueda ajustar ponderaciones sin tocar código.
  *
  * Portado 1:1 desde utils/scoring.py — misma lógica, mismas fórmulas.
+ *
+ * IMPORTANTE sobre rendimiento: las funciones de una sola postulación
+ * (promedioEtapa, estadoAdmisibilidad, calcularBonificacion,
+ * calcularResultadoFinal) consultan la base de datos directamente y están
+ * pensadas para usarse UNA postulación a la vez (ej. la página Evaluación).
+ * Para calcular el ranking de TODAS las postulaciones (Resultados,
+ * Estadísticas), tablaRanking() NO llama a esas funciones en un loop -- eso
+ * generaba una consulta a la base de datos por cada postulación y por cada
+ * paso del cálculo (problema N+1), que con pocas postulaciones de prueba no
+ * se notaba pero con datos reales importados hacía que la página se
+ * demorara muchísimo o se quedara cargando indefinidamente. En su lugar,
+ * tablaRanking() trae todo con un puñado de consultas (todas las
+ * evaluaciones, todas las bonificaciones manuales, la configuración) y
+ * calcula el resto en memoria con las mismas funciones puras que usa el
+ * cálculo de una sola postulación.
  */
 import { sql } from "@/lib/db";
 import { getConfig } from "@/lib/config-store";
@@ -18,6 +33,25 @@ import {
 import type { Evaluacion, Postulacion } from "@/lib/types";
 import { nombreCompleto, nombreProyecto } from "@/lib/types";
 
+type ColumnaManual =
+  | "valor_1_a_5"
+  | "madurez_tecnologica_1_a_5"
+  | "escalabilidad_1_a_5"
+  | "traccion_1_a_5";
+
+interface FilaBonificacionManual {
+  valor_1_a_5: number | null;
+  madurez_tecnologica_1_a_5: number | null;
+  escalabilidad_1_a_5: number | null;
+  traccion_1_a_5: number | null;
+}
+
+interface ConfigBonificacion {
+  activa?: boolean;
+  factores?: FactorBonificacion[];
+  puntaje_maximo?: number;
+}
+
 async function evaluacionesDe(postulacionId: number, etapaId: string): Promise<Evaluacion[]> {
   const rows = await sql<Evaluacion[]>`
     select * from evaluaciones
@@ -26,16 +60,23 @@ async function evaluacionesDe(postulacionId: number, etapaId: string): Promise<E
   return rows;
 }
 
-export async function puntajeEtapaPorEvaluador(
-  postulacionId: number,
+// ---------------------------------------------------------------------------
+// Funciones puras (sin consultas a la base de datos): reciben los datos ya
+// cargados y calculan. Tanto las funciones de una sola postulación como
+// tablaRanking() usan estas mismas funciones, así el cálculo es idéntico en
+// los dos casos.
+// ---------------------------------------------------------------------------
+
+function puntajesPorEvaluadorDesdeLista(
+  evaluaciones: Evaluacion[],
   etapaId: string
-): Promise<Record<number, number>> {
+): Record<number, number> {
   const etapa = ETAPAS_POR_ID[etapaId];
   const criteriosIds = new Set(etapa.criterios.map((c) => c.id));
 
-  const evaluaciones = await evaluacionesDe(postulacionId, etapaId);
   const porEvaluador = new Map<number, Map<string, Evaluacion>>();
   for (const ev of evaluaciones) {
+    if (ev.etapa_id !== etapaId) continue;
     if (!porEvaluador.has(ev.evaluador_id)) porEvaluador.set(ev.evaluador_id, new Map());
     porEvaluador.get(ev.evaluador_id)!.set(ev.criterio_id, ev);
   }
@@ -55,34 +96,28 @@ export async function puntajeEtapaPorEvaluador(
   return resultado;
 }
 
-export async function promedioEtapa(postulacionId: number, etapaId: string): Promise<number | null> {
-  const puntajes = await puntajeEtapaPorEvaluador(postulacionId, etapaId);
+function promedioEtapaDesdeLista(evaluaciones: Evaluacion[], etapaId: string): number | null {
+  const puntajes = puntajesPorEvaluadorDesdeLista(evaluaciones, etapaId);
   const valores = Object.values(puntajes);
   if (valores.length === 0) return null;
   const promedio = valores.reduce((a, b) => a + b, 0) / valores.length;
   return Math.round(promedio * 100) / 100;
 }
 
-export type EstadoAdmisibilidad = "Admisible" | "No admisible" | "Pendiente";
-
-export async function estadoAdmisibilidad(
-  postulacionId: number
-): Promise<{ estado: EstadoAdmisibilidad; puntaje: number | null }> {
-  const puntaje = await promedioEtapa(postulacionId, "etapa_1");
+function estadoAdmisibilidadDesdeLista(
+  evaluaciones: Evaluacion[]
+): { estado: EstadoAdmisibilidad; puntaje: number | null } {
+  const puntaje = promedioEtapaDesdeLista(evaluaciones, "etapa_1");
   if (puntaje === null) return { estado: "Pendiente", puntaje: null };
   const umbral = ETAPA_1.umbral_aprobacion ?? 50;
   return { estado: puntaje > umbral ? "Admisible" : "No admisible", puntaje };
 }
 
-export async function calcularBonificacion(
-  postulacion: Postulacion
-): Promise<{ bono: number; detalle: Record<string, number> }> {
-  const config = await getConfig<{
-    activa?: boolean;
-    factores?: FactorBonificacion[];
-    puntaje_maximo?: number;
-  }>("bonificacion");
-
+function calcularBonificacionDesdeDatos(
+  postulacion: Postulacion,
+  config: ConfigBonificacion,
+  filasManuales: FilaBonificacionManual[]
+): { bono: number; detalle: Record<string, number> } {
   if (config.activa === false) return { bono: 0, detalle: {} };
 
   const detalle: Record<string, number> = {};
@@ -95,18 +130,27 @@ export async function calcularBonificacion(
     financiamiento_previo: postulacion.ha_levantado_financiamiento,
   };
 
+  const columnaManualPorFactor: Record<string, ColumnaManual> = {
+    ambicion_proyeccion: "valor_1_a_5",
+    madurez_tecnologica: "madurez_tecnologica_1_a_5",
+    escalabilidad_modelo: "escalabilidad_1_a_5",
+    traccion_temprana: "traccion_1_a_5",
+  };
+
+  function promedioManual(columna: ColumnaManual): number | null {
+    const valores = filasManuales.map((f) => f[columna]).filter((v): v is number => v !== null);
+    if (valores.length === 0) return null;
+    return valores.reduce((a, b) => a + b, 0) / valores.length;
+  }
+
   for (const factor of config.factores ?? []) {
     const peso = factor.peso ?? 0;
     let puntosFactor: number;
 
-    if (factor.id === "ambicion_proyeccion") {
-      const rows = await sql<{ valor_1_a_5: number | null }[]>`
-        select valor_1_a_5 from bonificaciones_manuales
-        where postulacion_id = ${postulacion.id} and valor_1_a_5 is not null
-      `;
-      const valores = rows.map((r) => r.valor_1_a_5).filter((v): v is number => v !== null);
-      if (valores.length === 0) continue;
-      const promedio1a5 = valores.reduce((a, b) => a + b, 0) / valores.length;
+    const columnaManual = columnaManualPorFactor[factor.id];
+    if (columnaManual) {
+      const promedio1a5 = promedioManual(columnaManual);
+      if (promedio1a5 === null) continue;
       puntosFactor = ((promedio1a5 - 1) / 4) * 10;
     } else {
       const valorPostulante = campoPorFactor[factor.id];
@@ -128,25 +172,17 @@ export async function calcularBonificacion(
   return { bono: bonoFinal, detalle };
 }
 
-export interface ResultadoFinal {
-  postulacion_id: number;
-  estado_admisibilidad: EstadoAdmisibilidad;
-  puntaje_admisibilidad: number | null;
-  puntaje_etapa_2: number | null;
-  puntaje_etapa_3: number | null;
-  bonificacion: number;
-  detalle_bonificacion: Record<string, number>;
-  puntaje_base: number | null;
-  puntaje_final: number | null;
-}
-
-export async function calcularResultadoFinal(postulacion: Postulacion): Promise<ResultadoFinal> {
-  const pesoEtapas = await getConfig<Record<string, number>>("peso_etapas");
-
-  const { estado: estadoAdm, puntaje: puntajeAdm } = await estadoAdmisibilidad(postulacion.id);
-  const puntajeE2 = await promedioEtapa(postulacion.id, "etapa_2");
-  const puntajeE3 = await promedioEtapa(postulacion.id, "etapa_3");
-  const { bono, detalle: detalleBono } = await calcularBonificacion(postulacion);
+function calcularResultadoFinalDesdeDatos(
+  postulacion: Postulacion,
+  pesoEtapas: Record<string, number>,
+  configBono: ConfigBonificacion,
+  evaluaciones: Evaluacion[],
+  filasManuales: FilaBonificacionManual[]
+): ResultadoFinal {
+  const { estado: estadoAdm, puntaje: puntajeAdm } = estadoAdmisibilidadDesdeLista(evaluaciones);
+  const puntajeE2 = promedioEtapaDesdeLista(evaluaciones, "etapa_2");
+  const puntajeE3 = promedioEtapaDesdeLista(evaluaciones, "etapa_3");
+  const { bono, detalle: detalleBono } = calcularBonificacionDesdeDatos(postulacion, configBono, filasManuales);
 
   const componentes: Array<[number, number]> = [];
   if (puntajeE2 !== null) componentes.push([puntajeE2, pesoEtapas.etapa_2 ?? 0]);
@@ -170,6 +206,81 @@ export async function calcularResultadoFinal(postulacion: Postulacion): Promise<
   };
 }
 
+// ---------------------------------------------------------------------------
+// Funciones públicas para UNA postulación (consultan la base de datos
+// directamente). Se usan en la página Evaluación, donde solo se calcula la
+// postulación que se está viendo, así que no hay problema de rendimiento.
+// ---------------------------------------------------------------------------
+
+export async function puntajeEtapaPorEvaluador(
+  postulacionId: number,
+  etapaId: string
+): Promise<Record<number, number>> {
+  const evaluaciones = await evaluacionesDe(postulacionId, etapaId);
+  return puntajesPorEvaluadorDesdeLista(evaluaciones, etapaId);
+}
+
+export async function promedioEtapa(postulacionId: number, etapaId: string): Promise<number | null> {
+  const evaluaciones = await evaluacionesDe(postulacionId, etapaId);
+  return promedioEtapaDesdeLista(evaluaciones, etapaId);
+}
+
+export type EstadoAdmisibilidad = "Admisible" | "No admisible" | "Pendiente";
+
+export async function estadoAdmisibilidad(
+  postulacionId: number
+): Promise<{ estado: EstadoAdmisibilidad; puntaje: number | null }> {
+  const evaluaciones = await evaluacionesDe(postulacionId, "etapa_1");
+  return estadoAdmisibilidadDesdeLista(evaluaciones);
+}
+
+export async function calcularBonificacion(
+  postulacion: Postulacion
+): Promise<{ bono: number; detalle: Record<string, number> }> {
+  const config = await getConfig<ConfigBonificacion>("bonificacion");
+
+  const filasManuales = await sql<FilaBonificacionManual[]>`
+    select valor_1_a_5, madurez_tecnologica_1_a_5, escalabilidad_1_a_5, traccion_1_a_5
+    from bonificaciones_manuales
+    where postulacion_id = ${postulacion.id}
+  `;
+
+  return calcularBonificacionDesdeDatos(postulacion, config, filasManuales);
+}
+
+export interface ResultadoFinal {
+  postulacion_id: number;
+  estado_admisibilidad: EstadoAdmisibilidad;
+  puntaje_admisibilidad: number | null;
+  puntaje_etapa_2: number | null;
+  puntaje_etapa_3: number | null;
+  bonificacion: number;
+  detalle_bonificacion: Record<string, number>;
+  puntaje_base: number | null;
+  puntaje_final: number | null;
+}
+
+export async function calcularResultadoFinal(postulacion: Postulacion): Promise<ResultadoFinal> {
+  const [pesoEtapas, configBono, evaluaciones, filasManuales] = await Promise.all([
+    getConfig<Record<string, number>>("peso_etapas"),
+    getConfig<ConfigBonificacion>("bonificacion"),
+    sql<Evaluacion[]>`select * from evaluaciones where postulacion_id = ${postulacion.id}`,
+    sql<FilaBonificacionManual[]>`
+      select valor_1_a_5, madurez_tecnologica_1_a_5, escalabilidad_1_a_5, traccion_1_a_5
+      from bonificaciones_manuales
+      where postulacion_id = ${postulacion.id}
+    `,
+  ]);
+
+  return calcularResultadoFinalDesdeDatos(postulacion, pesoEtapas, configBono, evaluaciones, filasManuales);
+}
+
+// ---------------------------------------------------------------------------
+// Ranking de TODAS las postulaciones (Resultados, Estadísticas): trae todo
+// con un puñado de consultas y calcula en memoria, en vez de una consulta
+// por postulación.
+// ---------------------------------------------------------------------------
+
 export interface FilaRanking {
   ranking: number;
   id: number;
@@ -192,10 +303,38 @@ const ORDEN_ADMISIBILIDAD: Record<EstadoAdmisibilidad, number> = {
 };
 
 export async function tablaRanking(postulaciones: Postulacion[]): Promise<FilaRanking[]> {
-  const filas: Omit<FilaRanking, "ranking">[] = [];
-  for (const p of postulaciones) {
-    const r = await calcularResultadoFinal(p);
-    filas.push({
+  if (postulaciones.length === 0) return [];
+
+  const ids = postulaciones.map((p) => p.id);
+
+  const [pesoEtapas, configBono, todasEvaluaciones, todasBonificaciones] = await Promise.all([
+    getConfig<Record<string, number>>("peso_etapas"),
+    getConfig<ConfigBonificacion>("bonificacion"),
+    sql<Evaluacion[]>`select * from evaluaciones where postulacion_id = any(${ids})`,
+    sql<(FilaBonificacionManual & { postulacion_id: number })[]>`
+      select postulacion_id, valor_1_a_5, madurez_tecnologica_1_a_5, escalabilidad_1_a_5, traccion_1_a_5
+      from bonificaciones_manuales
+      where postulacion_id = any(${ids})
+    `,
+  ]);
+
+  const evalPorPostulacion = new Map<number, Evaluacion[]>();
+  for (const ev of todasEvaluaciones) {
+    if (!evalPorPostulacion.has(ev.postulacion_id)) evalPorPostulacion.set(ev.postulacion_id, []);
+    evalPorPostulacion.get(ev.postulacion_id)!.push(ev);
+  }
+
+  const bonoPorPostulacion = new Map<number, FilaBonificacionManual[]>();
+  for (const b of todasBonificaciones) {
+    if (!bonoPorPostulacion.has(b.postulacion_id)) bonoPorPostulacion.set(b.postulacion_id, []);
+    bonoPorPostulacion.get(b.postulacion_id)!.push(b);
+  }
+
+  const filas: Omit<FilaRanking, "ranking">[] = postulaciones.map((p) => {
+    const evaluaciones = evalPorPostulacion.get(p.id) ?? [];
+    const filasManuales = bonoPorPostulacion.get(p.id) ?? [];
+    const r = calcularResultadoFinalDesdeDatos(p, pesoEtapas, configBono, evaluaciones, filasManuales);
+    return {
       id: p.id,
       proyecto: nombreProyecto(p),
       postulante: nombreCompleto(p),
@@ -207,8 +346,8 @@ export async function tablaRanking(postulaciones: Postulacion[]): Promise<FilaRa
       etapa3: r.puntaje_etapa_3,
       bonificacion: r.bonificacion,
       puntajeFinal: r.puntaje_final,
-    });
-  }
+    };
+  });
 
   // Las postulaciones "No admisibles" quedan fuera de la fase siguiente según
   // las bases (punto 4.5.1), por lo que se ordenan después de las admisibles
