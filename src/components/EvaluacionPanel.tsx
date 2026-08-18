@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import type { Etapa } from "@/lib/rubric";
+import { useMemo, useState, useTransition } from "react";
+import type { Etapa, FactorBonificacion, FilaBonoManualValores } from "@/lib/rubric";
+import { calcularBonoEnVivo } from "@/lib/rubric";
 import type { BonificacionManualValores } from "@/lib/types";
 import { guardarBonificacionManual, guardarEvaluacionEtapa } from "@/lib/actions/evaluacion";
 
@@ -20,6 +21,8 @@ interface Props {
   admisibilidad: { estado: "Admisible" | "No admisible" | "Pendiente"; puntaje: number | null };
   bonoManual: BonificacionManualValores | null;
   bonoCalculado: { bono: number; detalle: Record<string, number> };
+  otrosValoresManuales: FilaBonoManualValores[];
+  factoresBonificacion: FactorBonificacion[];
   resumenAutomatico: {
     tipo_potencial_innovador: string | null;
     alcance_innovacion: string | null;
@@ -41,6 +44,8 @@ export function EvaluacionPanel({
   admisibilidad,
   bonoManual,
   bonoCalculado,
+  otrosValoresManuales,
+  factoresBonificacion,
   resumenAutomatico,
   puntajeMaximoBono,
 }: Props) {
@@ -92,6 +97,8 @@ export function EvaluacionPanel({
           postulacionId={postulacionId}
           bonoManual={bonoManual}
           bonoCalculado={bonoCalculado}
+          otrosValoresManuales={otrosValoresManuales}
+          factoresBonificacion={factoresBonificacion}
           resumenAutomatico={resumenAutomatico}
           puntajeMaximoBono={puntajeMaximoBono}
         />
@@ -245,12 +252,16 @@ function BonoTab({
   postulacionId,
   bonoManual,
   bonoCalculado,
+  otrosValoresManuales,
+  factoresBonificacion,
   resumenAutomatico,
   puntajeMaximoBono,
 }: {
   postulacionId: number;
   bonoManual: BonificacionManualValores | null;
   bonoCalculado: { bono: number; detalle: Record<string, number> };
+  otrosValoresManuales: FilaBonoManualValores[];
+  factoresBonificacion: FactorBonificacion[];
   resumenAutomatico: Props["resumenAutomatico"];
   puntajeMaximoBono: number;
 }) {
@@ -264,6 +275,21 @@ function BonoTab({
   });
   const [comentario, setComentario] = useState(bonoManual?.comentario ?? "");
   const [guardado, setGuardado] = useState(false);
+
+  // Se recalcula al vuelo cada vez que se mueve un slider, usando el mismo
+  // criterio que se guardará al presionar "Guardar" — así la cifra de abajo
+  // deja de depender de recargar la página para reflejar el cambio.
+  const bonoEnVivo = useMemo(
+    () =>
+      calcularBonoEnVivo(
+        factoresBonificacion,
+        bonoCalculado.detalle,
+        otrosValoresManuales,
+        valores,
+        puntajeMaximoBono
+      ),
+    [factoresBonificacion, bonoCalculado.detalle, otrosValoresManuales, valores, puntajeMaximoBono]
+  );
 
   function guardar() {
     setGuardado(false);
@@ -342,7 +368,10 @@ function BonoTab({
 
       <div className="metric-card">
         <div className="metric-label">Bonificación total estimada (máx. {puntajeMaximoBono} pts)</div>
-        <div className="metric-value">{bonoCalculado.bono}</div>
+        <div className="metric-value">{bonoEnVivo}</div>
+        <p className="text-xs text-gris-muted mt-1">
+          Se actualiza al mover los sliders; refleja lo que quedaría si guardas ahora.
+        </p>
       </div>
     </div>
   );
