@@ -97,6 +97,29 @@ export async function importarPostulaciones(
   return { nuevas, omitidas };
 }
 
+/**
+ * Borra TODAS las postulaciones (y, en cascada, sus evaluaciones y
+ * bonificaciones manuales asociadas, por la referencia "on delete cascade"
+ * del esquema). Pensado para limpiar datos de prueba antes de una
+ * convocatoria real -- es irreversible, por eso exige admin y una palabra
+ * de confirmación exacta desde la interfaz.
+ */
+export async function eliminarTodasLasPostulaciones(confirmacion: string): Promise<{ eliminadas: number }> {
+  await requerirAdmin();
+  if (confirmacion !== "ELIMINAR") {
+    throw new Error('Escribe exactamente "ELIMINAR" para confirmar.');
+  }
+
+  const rows = await sql`delete from postulaciones returning id`;
+
+  revalidatePath("/postulaciones");
+  revalidatePath("/evaluacion");
+  revalidatePath("/resultados");
+  revalidatePath("/estadisticas");
+  revalidatePath("/configuracion");
+  return { eliminadas: rows.length };
+}
+
 // --------------------------------- Evaluadores -------------------------------
 
 export async function crearEvaluador(
