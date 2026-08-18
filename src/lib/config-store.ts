@@ -7,7 +7,7 @@
  * Portado desde db/config_store.py.
  */
 import { sql } from "@/lib/db";
-import { PESO_ETAPAS_DEFAULT, BONIFICACION_DEFAULT, CRITERIOS_ADICIONALES } from "@/lib/rubric";
+import { PESO_ETAPAS_DEFAULT, BONIFICACION_DEFAULT, CRITERIOS_ADICIONALES, type FactorBonificacion } from "@/lib/rubric";
 
 const DEFAULTS: Record<string, unknown> = {
   peso_etapas: PESO_ETAPAS_DEFAULT,
@@ -36,4 +36,47 @@ export async function setConfig<T = Record<string, unknown>>(clave: string, valo
     do update set valor_json = excluded.valor_json, actualizado_en = now()
   `;
   return valor;
+}
+
+export interface ConfigBonificacion {
+  activa?: boolean;
+  puntaje_maximo?: number;
+  factores?: FactorBonificacion[];
+}
+
+/**
+ * Carga la configuración de bonificación y la completa con cualquier factor
+ * que exista en BONIFICACION_DEFAULT (rubric.ts) pero que todavía no esté
+ * guardado en la fila de la base de datos para este proyecto.
+ *
+ * Por qué hace falta: la primera vez que se llama a getConfig("bonificacion")
+ * en un proyecto, esta graba una COPIA de BONIFICACION_DEFAULT tal como era
+ * en ese momento. Si más adelante el código agrega un factor nuevo a
+ * BONIFICACION_DEFAULT (como pasó con "Madurez tecnológica", "Escalabilidad
+ * del modelo" y "Tracción temprana"), esa copia ya guardada NO se actualiza
+ * sola — se queda con la lista antigua de factores para siempre. El
+ * resultado es que el factor nuevo queda invisible: no aparece en
+ * Configuración → Bonificación para ajustar su peso, y ningún cálculo de
+ * bonificación lo toma en cuenta, aunque el panel evaluador sí llene su
+ * slider correspondiente en la pantalla de Evaluación y crea que se está
+ * guardando con efecto.
+ *
+ * Esta función detecta esos factores faltantes, los agrega (con el peso
+ * sugerido por defecto) y guarda la versión completa de vuelta, para que
+ * quede resuelto de forma permanente desde la primera vez que se detecta.
+ */
+export async function getConfigBonificacion(): Promise<ConfigBonificacion> {
+  const config = await getConfig<ConfigBonificacion>("bonificacion");
+  const factoresActuales = config.factores ?? [];
+  const idsActuales = new Set(factoresActuales.map((f) => f.id));
+  const faltantes = BONIFICACION_DEFAULT.factores.filter((f) => !idsActuales.has(f.id));
+
+  if (faltantes.length === 0) return config;
+
+  const completo: ConfigBonificacion = {
+    ...config,
+    factores: [...factoresActuales, ...faltantes],
+  };
+  await setConfig("bonificacion", completo);
+  return completo;
 }
