@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { LoginForm } from "@/components/LoginForm";
-import { ADMIN_POR_DEFECTO_EMAIL, ADMIN_POR_DEFECTO_PASSWORD, asegurarAdminPorDefecto } from "@/lib/auth-users";
+import { asegurarAdminPorDefecto } from "@/lib/auth-users";
 
 export default async function LoginPage() {
   const session = await auth();
@@ -39,14 +39,6 @@ export default async function LoginPage() {
             Plataforma oficial para la gestión, admisibilidad y evaluación de proyectos de
             emprendimiento e innovación en la Región de Ñuble.
           </p>
-          <div className="mt-5 rounded-xl border border-gris-borde bg-white p-3.5">
-            <div className="text-sm font-bold text-gris-texto">ℹ️ Primer ingreso (administrador)</div>
-            <div className="text-sm text-gris-muted mt-1">
-              Usuario: <code className="text-morado-vibrante">{ADMIN_POR_DEFECTO_EMAIL}</code>
-              <br />
-              Clave: <code className="text-morado-vibrante">{ADMIN_POR_DEFECTO_PASSWORD}</code>
-            </div>
-          </div>
         </div>
       </div>
     </div>
