@@ -19,7 +19,7 @@ async function requerirAdmin() {
 
 export async function importarPostulaciones(
   filas: Record<string, string | null>[],
-  mapeo: Record<string, string | null>,
+  mapeo: Record<string, string[]>,
   evitarDuplicados: boolean
 ): Promise<{ nuevas: number; omitidas: number }> {
   await requerirAdmin();
@@ -35,13 +35,21 @@ export async function importarPostulaciones(
   let nuevas = 0;
   let omitidas = 0;
 
+  // Un campo de destino puede venir de varias columnas del CSV (por ejemplo,
+  // "comuna" cuando el formulario tiene una pregunta ramificada en varias
+  // columnas condicionales). Se recorren en orden y se usa la primera que
+  // tenga un valor no vacío para esa fila.
   function val(fila: Record<string, string | null>, campo: string): string | null {
-    const col = mapeo[campo];
-    if (!col || !(col in fila)) return null;
-    const v = fila[col];
-    if (v === null || v === undefined) return null;
-    const s = String(v).trim();
-    return s === "" ? null : s;
+    const columnas = mapeo[campo];
+    if (!columnas || columnas.length === 0) return null;
+    for (const col of columnas) {
+      if (!(col in fila)) continue;
+      const v = fila[col];
+      if (v === null || v === undefined) continue;
+      const s = String(v).trim();
+      if (s !== "") return s;
+    }
+    return null;
   }
 
   for (const fila of filas) {
