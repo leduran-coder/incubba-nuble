@@ -4,10 +4,10 @@ import { Hero } from "@/components/Hero";
 import { EvaluacionPanel } from "@/components/EvaluacionPanel";
 import { listarPostulaciones } from "@/lib/postulaciones";
 import { nombreCompleto, nombreProyecto } from "@/lib/types";
-import { ETAPA_1, ETAPA_2, ETAPA_3, BONIFICACION_DEFAULT, type FactorBonificacion } from "@/lib/rubric";
+import { ETAPA_1, ETAPA_2, ETAPA_3, BONIFICACION_DEFAULT } from "@/lib/rubric";
 import { respuestasEvaluador, bonoManualEvaluador, bonoManualDeOtrosEvaluadores } from "@/lib/evaluaciones";
 import { promedioEtapa, estadoAdmisibilidad, calcularBonificacion } from "@/lib/scoring";
-import { getConfig } from "@/lib/config-store";
+import { getConfigBonificacion } from "@/lib/config-store";
 
 export default async function EvaluacionPage({
   searchParams,
@@ -48,7 +48,7 @@ export default async function EvaluacionPage({
   const bonoManual = await bonoManualEvaluador(postulacion.id, evaluadorId);
   const bonoCalculado = await calcularBonificacion(postulacion);
   const otrosValoresManuales = await bonoManualDeOtrosEvaluadores(postulacion.id, evaluadorId);
-  const config = await getConfig<{ puntaje_maximo?: number; factores?: FactorBonificacion[] }>("bonificacion");
+  const config = await getConfigBonificacion();
 
   return (
     <div>
