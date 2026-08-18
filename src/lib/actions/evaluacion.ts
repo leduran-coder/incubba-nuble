@@ -44,7 +44,12 @@ export async function guardarEvaluacionEtapa(
 
 export async function guardarBonificacionManual(
   postulacionId: number,
-  valor: number,
+  valores: {
+    ambicionProyeccion: number;
+    madurezTecnologica: number;
+    escalabilidadModelo: number;
+    traccionTemprana: number;
+  },
   comentario: string
 ): Promise<void> {
   const session = await auth();
@@ -52,11 +57,22 @@ export async function guardarBonificacionManual(
   const evaluadorId = Number(session.user.id);
 
   await sql`
-    insert into bonificaciones_manuales (postulacion_id, evaluador_id, valor_1_a_5, comentario, actualizado_en)
-    values (${postulacionId}, ${evaluadorId}, ${valor}, ${comentario}, now())
+    insert into bonificaciones_manuales (
+      postulacion_id, evaluador_id,
+      valor_1_a_5, madurez_tecnologica_1_a_5, escalabilidad_1_a_5, traccion_1_a_5,
+      comentario, actualizado_en
+    )
+    values (
+      ${postulacionId}, ${evaluadorId},
+      ${valores.ambicionProyeccion}, ${valores.madurezTecnologica}, ${valores.escalabilidadModelo}, ${valores.traccionTemprana},
+      ${comentario}, now()
+    )
     on conflict (postulacion_id, evaluador_id)
     do update set
       valor_1_a_5 = excluded.valor_1_a_5,
+      madurez_tecnologica_1_a_5 = excluded.madurez_tecnologica_1_a_5,
+      escalabilidad_1_a_5 = excluded.escalabilidad_1_a_5,
+      traccion_1_a_5 = excluded.traccion_1_a_5,
       comentario = excluded.comentario,
       actualizado_en = now()
   `;
