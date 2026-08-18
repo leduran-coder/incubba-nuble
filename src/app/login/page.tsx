@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { LoginForm } from "@/components/LoginForm";
@@ -18,7 +19,15 @@ export default async function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gris-fondo p-4">
+    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gris-fondo p-4 gap-6">
+      <Image
+        src="/logo-incubba.png"
+        alt="Incubba Ñuble UBB"
+        width={280}
+        height={94}
+        style={{ width: "auto", height: 56 }}
+        priority
+      />
       <div className="grid md:grid-cols-2 gap-6 max-w-4xl w-full">
         <div className="card p-7 shadow-lg">
           <h3 className="text-xl font-extrabold text-gris-texto mb-1">🔐 Acceso al Portal</h3>
@@ -41,6 +50,13 @@ export default async function LoginPage() {
           </p>
         </div>
       </div>
+      <Image
+        src="/logo-financiadores.png"
+        alt="Ejecuta: VRIP, Dirección de Innovación UBB. Proyecto apoyado por CORFO"
+        width={480}
+        height={161}
+        style={{ width: "auto", height: 60 }}
+      />
     </div>
   );
 }
