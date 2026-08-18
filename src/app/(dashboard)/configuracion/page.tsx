@@ -3,8 +3,7 @@ import { auth } from "@/auth";
 import { Hero } from "@/components/Hero";
 import { ConfiguracionTabs } from "@/components/configuracion/ConfiguracionTabs";
 import { listarUsuarios } from "@/lib/auth-users";
-import { getConfig } from "@/lib/config-store";
-import type { FactorBonificacion } from "@/lib/rubric";
+import { getConfig, getConfigBonificacion } from "@/lib/config-store";
 
 export default async function ConfiguracionPage() {
   const session = await auth();
@@ -12,9 +11,7 @@ export default async function ConfiguracionPage() {
   if (session.user.rol !== "admin") redirect("/");
 
   const usuarios = await listarUsuarios();
-  const bonificacion = await getConfig<{ activa?: boolean; puntaje_maximo?: number; factores?: FactorBonificacion[] }>(
-    "bonificacion"
-  );
+  const bonificacion = await getConfigBonificacion();
   const pesoEtapas = await getConfig<Record<string, number>>("peso_etapas");
 
   return (
