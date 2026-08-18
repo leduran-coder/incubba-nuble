@@ -1,4 +1,5 @@
 import { sql } from "@/lib/db";
+import type { BonificacionManualValores } from "@/lib/types";
 
 export async function respuestasEvaluador(
   postulacionId: number,
@@ -21,9 +22,10 @@ export async function respuestasEvaluador(
 export async function bonoManualEvaluador(
   postulacionId: number,
   evaluadorId: number
-): Promise<{ valor_1_a_5: number | null; comentario: string | null } | null> {
-  const rows = await sql<{ valor_1_a_5: number | null; comentario: string | null }[]>`
-    select valor_1_a_5, comentario from bonificaciones_manuales
+): Promise<BonificacionManualValores | null> {
+  const rows = await sql<BonificacionManualValores[]>`
+    select valor_1_a_5, madurez_tecnologica_1_a_5, escalabilidad_1_a_5, traccion_1_a_5, comentario
+    from bonificaciones_manuales
     where postulacion_id = ${postulacionId} and evaluador_id = ${evaluadorId}
   `;
   return rows[0] ?? null;
