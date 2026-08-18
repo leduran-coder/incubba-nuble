@@ -1,5 +1,6 @@
 import { sql } from "@/lib/db";
 import type { BonificacionManualValores } from "@/lib/types";
+import type { FilaBonoManualValores } from "@/lib/rubric";
 
 export async function respuestasEvaluador(
   postulacionId: number,
@@ -29,4 +30,22 @@ export async function bonoManualEvaluador(
     where postulacion_id = ${postulacionId} and evaluador_id = ${evaluadorId}
   `;
   return rows[0] ?? null;
+}
+
+/**
+ * Filas de bonificaciones_manuales de TODOS los demás evaluadores (sin
+ * incluir al actual) para una postulación. Se usa para recalcular en el
+ * navegador, en tiempo real, cuál sería el promedio de cada factor
+ * cualitativo si el evaluador actual guardara el valor que su slider tiene
+ * en este momento (ver calcularBonoEnVivo en lib/rubric.ts).
+ */
+export async function bonoManualDeOtrosEvaluadores(
+  postulacionId: number,
+  evaluadorIdActual: number
+): Promise<FilaBonoManualValores[]> {
+  return sql<FilaBonoManualValores[]>`
+    select valor_1_a_5, madurez_tecnologica_1_a_5, escalabilidad_1_a_5, traccion_1_a_5
+    from bonificaciones_manuales
+    where postulacion_id = ${postulacionId} and evaluador_id != ${evaluadorIdActual}
+  `;
 }
