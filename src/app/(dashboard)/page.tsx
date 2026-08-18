@@ -1,12 +1,33 @@
+import Link from "next/link";
 import { auth } from "@/auth";
 import { Hero } from "@/components/Hero";
 import { sql } from "@/lib/db";
 
 const NAV_CARDS = [
-  { icon: "📝", titulo: "Postulaciones", texto: "Revisa y filtra el listado completo importado desde Google Forms." },
-  { icon: "🎯", titulo: "Evaluación", texto: "Califica las 3 etapas oficiales: Admisibilidad, Proyecto y Entrevista." },
-  { icon: "🏆", titulo: "Resultados", texto: "Ranking consolidado, bonificación por potencial dinámico y metas de paridad." },
-  { icon: "📊", titulo: "Estadísticas", texto: "Métricas territoriales de Ñuble, género, sectores y grado de innovación." },
+  {
+    icon: "📝",
+    titulo: "Postulaciones",
+    texto: "Revisa y filtra el listado completo importado desde Google Forms.",
+    href: "/postulaciones",
+  },
+  {
+    icon: "🎯",
+    titulo: "Evaluación",
+    texto: "Califica las 3 etapas oficiales: Admisibilidad, Proyecto y Entrevista.",
+    href: "/evaluacion",
+  },
+  {
+    icon: "🏆",
+    titulo: "Resultados",
+    texto: "Ranking consolidado, bonificación por potencial dinámico y metas de paridad.",
+    href: "/resultados",
+  },
+  {
+    icon: "📊",
+    titulo: "Estadísticas",
+    texto: "Métricas territoriales de Ñuble, género, sectores y grado de innovación.",
+    href: "/estadisticas",
+  },
 ];
 
 export default async function InicioPage() {
@@ -53,13 +74,17 @@ export default async function InicioPage() {
         <h4 className="font-bold text-gris-texto mb-3">📌 Navegación Rápida</h4>
         <div className="grid sm:grid-cols-2 gap-3.5">
           {NAV_CARDS.map((c) => (
-            <div key={c.titulo} className="rounded-xl border border-gris-borde bg-gris-fondo p-3.5">
+            <Link
+              key={c.titulo}
+              href={c.href}
+              className="rounded-xl border border-gris-borde bg-gris-fondo p-3.5 block transition hover:border-morado-vibrante hover:bg-morado-vibrante/5"
+            >
               <strong className="text-morado-vibrante">
                 {c.icon} {c.titulo}
               </strong>
               <br />
               <small className="text-gris-muted">{c.texto}</small>
-            </div>
+            </Link>
           ))}
         </div>
       </div>
