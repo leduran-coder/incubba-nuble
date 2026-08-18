@@ -71,14 +71,36 @@ function similitud(a: string, b: string): number {
   return total === 0 ? 0 : (2 * interseccion) / total;
 }
 
-export function sugerirMapeo(columnasCsv: string[]): Record<string, string | null> {
-  const mapeo: Record<string, string | null> = {};
+/**
+ * Sugiere, para cada campo de destino, la o las columnas del CSV que le
+ * corresponden.
+ *
+ * Devuelve un array de columnas por campo (en vez de una sola) porque
+ * algunas preguntas del formulario de Google están "ramificadas" en
+ * secciones condicionales (por ejemplo, una pregunta que se repite en 3
+ * columnas distintas según la rama que tomó la persona al responder, como
+ * pasa con "Comuna de residencia"). En esos casos cada fila del CSV solo
+ * trae dato en UNA de esas columnas; las demás quedan vacías para esa fila.
+ *
+ * Para decidir esto se recorre CADA COLUMNA del CSV y se le asigna el campo
+ * de destino para el que obtiene el mejor puntaje (en vez de, al revés,
+ * preguntar por cada campo qué columnas calzan). Esto evita que una palabra
+ * clave corta de un campo (p. ej. "provincia") aparezca por accidente dentro
+ * del encabezado largo de otra pregunta (p. ej. "Comuna de residencia [...
+ * provincia de Itata]") y termine sugerida como columna de ese otro campo:
+ * como esa columna calza mejor con "comuna" que con "provincia", queda
+ * asignada solo a "comuna". Dos o más columnas solo se agrupan bajo el mismo
+ * campo cuando cada una, de forma independiente, es su mejor calce posible.
+ */
+export function sugerirMapeo(columnasCsv: string[]): Record<string, string[]> {
   const columnasNorm = columnasCsv.map((c) => [c, normaliza(c)] as const);
+  const asignaciones: Record<string, { col: string; score: number }[]> = {};
+  for (const [campo] of FIELD_DEFINITIONS) asignaciones[campo] = [];
 
-  for (const [campo, , keywords] of FIELD_DEFINITIONS) {
-    let mejorColumna: string | null = null;
+  for (const [col, colNorm] of columnasNorm) {
+    let mejorCampo: string | null = null;
     let mejorScore = 0;
-    for (const [col, colNorm] of columnasNorm) {
+    for (const [campo, , keywords] of FIELD_DEFINITIONS) {
       let score = 0;
       for (const kw of keywords) {
         if (colNorm.includes(kw)) {
@@ -90,10 +112,20 @@ export function sugerirMapeo(columnasCsv: string[]): Record<string, string | nul
       }
       if (score > mejorScore) {
         mejorScore = score;
-        mejorColumna = col;
+        mejorCampo = campo;
       }
     }
-    mapeo[campo] = mejorScore >= 0.35 ? mejorColumna : null;
+    if (mejorCampo && mejorScore >= 0.35) {
+      asignaciones[mejorCampo].push({ col, score: mejorScore });
+    }
+  }
+
+  const mapeo: Record<string, string[]> = {};
+  for (const [campo] of FIELD_DEFINITIONS) {
+    mapeo[campo] = asignaciones[campo]
+      .slice()
+      .sort((a, b) => b.score - a.score)
+      .map((c) => c.col);
   }
   return mapeo;
 }
