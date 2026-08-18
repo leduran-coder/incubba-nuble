@@ -10,7 +10,8 @@ export function CsvImportTab() {
   const [isPending, startTransition] = useTransition();
   const [columnas, setColumnas] = useState<string[] | null>(null);
   const [filas, setFilas] = useState<Record<string, string | null>[] | null>(null);
-  const [mapeo, setMapeo] = useState<Record<string, string | null>>({});
+  const [mapeo, setMapeo] = useState<Record<string, string[]>>({});
+  const [camposExpandidos, setCamposExpandidos] = useState<Set<string>>(new Set());
   const [evitarDup, setEvitarDup] = useState(true);
   const [resultado, setResultado] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -25,11 +26,44 @@ export function CsvImportTab() {
       skipEmptyLines: true,
       complete: (res) => {
         const cols = res.meta.fields ?? [];
+        const sugerido = sugerirMapeo(cols);
         setColumnas(cols);
         setFilas(res.data);
-        setMapeo(sugerirMapeo(cols));
+        setMapeo(sugerido);
+        // Si para algún campo se detectó más de una columna posible (p. ej.
+        // una pregunta ramificada como "comuna"), se abre de una vez la
+        // sección de columnas alternativas para que quede a la vista.
+        setCamposExpandidos(
+          new Set(Object.entries(sugerido).filter(([, cs]) => cs.length > 1).map(([campo]) => campo))
+        );
       },
       error: (err) => setError(`No se pudo leer el archivo: ${err.message}`),
+    });
+  }
+
+  function cambiarColumnaPrincipal(campo: string, columna: string | null) {
+    setMapeo((m) => {
+      const adicionales = (m[campo] ?? []).slice(1);
+      return { ...m, [campo]: columna ? [columna, ...adicionales] : adicionales };
+    });
+  }
+
+  function alternarColumnaAlternativa(campo: string, columna: string, marcada: boolean) {
+    setMapeo((m) => {
+      const actuales = m[campo] ?? [];
+      const principal = actuales[0] ?? null;
+      let adicionales = actuales.slice(1);
+      adicionales = marcada ? [...adicionales.filter((c) => c !== columna), columna] : adicionales.filter((c) => c !== columna);
+      return { ...m, [campo]: principal ? [principal, ...adicionales] : adicionales };
+    });
+  }
+
+  function alternarExpandido(campo: string) {
+    setCamposExpandidos((set) => {
+      const nuevo = new Set(set);
+      if (nuevo.has(campo)) nuevo.delete(campo);
+      else nuevo.add(campo);
+      return nuevo;
     });
   }
 
@@ -78,25 +112,64 @@ export function CsvImportTab() {
             Revisa el mapeo de columnas (se sugiere automáticamente; ajusta si algo no calzó):
           </p>
           <div className="grid sm:grid-cols-2 gap-3 mb-4 max-h-96 overflow-y-auto pr-1">
-            {FIELD_DEFINITIONS.map(([campo, label]) => (
-              <div key={campo}>
-                <label className="block text-xs font-semibold text-gris-muted mb-1">{label}</label>
-                <select
-                  value={mapeo[campo] ?? "(no importar)"}
-                  onChange={(e) =>
-                    setMapeo((m) => ({ ...m, [campo]: e.target.value === "(no importar)" ? null : e.target.value }))
-                  }
-                  className="w-full rounded-lg border border-gris-borde px-2 py-1.5 text-sm"
-                >
-                  <option>(no importar)</option>
-                  {columnas.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
+            {FIELD_DEFINITIONS.map(([campo, label]) => {
+              const columnaPrincipal = mapeo[campo]?.[0] ?? null;
+              const columnasAlternativas = mapeo[campo]?.slice(1) ?? [];
+              const expandido = camposExpandidos.has(campo);
+              return (
+                <div key={campo}>
+                  <label className="block text-xs font-semibold text-gris-muted mb-1">{label}</label>
+                  <select
+                    value={columnaPrincipal ?? "(no importar)"}
+                    onChange={(e) =>
+                      cambiarColumnaPrincipal(campo, e.target.value === "(no importar)" ? null : e.target.value)
+                    }
+                    className="w-full rounded-lg border border-gris-borde px-2 py-1.5 text-sm"
+                  >
+                    <option>(no importar)</option>
+                    {columnas.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={() => alternarExpandido(campo)}
+                    className="text-xs text-morado-vibrante mt-1 hover:underline"
+                  >
+                    {expandido
+                      ? "Ocultar columnas alternativas"
+                      : columnasAlternativas.length > 0
+                        ? `+ ${columnasAlternativas.length} columna(s) alternativa(s) — ver`
+                        : "¿Esta respuesta puede venir de más de una columna? Agregar alternativa"}
+                  </button>
+
+                  {expandido ? (
+                    <div className="mt-2 rounded-lg border border-gris-borde bg-gris-fondo p-2 max-h-40 overflow-y-auto">
+                      <p className="text-xs text-gris-muted mb-1.5">
+                        Marca otras columnas donde esta misma pregunta pueda aparecer (por ejemplo, por
+                        una sección condicional del formulario). Se usará la primera columna que tenga
+                        dato en cada fila.
+                      </p>
+                      {columnas
+                        .filter((c) => c !== columnaPrincipal)
+                        .map((c) => (
+                          <label key={c} className="flex items-center gap-2 text-xs py-0.5">
+                            <input
+                              type="checkbox"
+                              checked={columnasAlternativas.includes(c)}
+                              onChange={(e) => alternarColumnaAlternativa(campo, c, e.target.checked)}
+                            />
+                            {c}
+                          </label>
+                        ))}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
 
           <label className="flex items-center gap-2 text-sm mb-4">
