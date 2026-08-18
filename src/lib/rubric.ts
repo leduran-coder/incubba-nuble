@@ -569,6 +569,86 @@ export const BONIFICACION_DEFAULT = {
   ] as FactorBonificacion[],
 };
 
+export interface FilaBonoManualValores {
+  valor_1_a_5: number | null;
+  madurez_tecnologica_1_a_5: number | null;
+  escalabilidad_1_a_5: number | null;
+  traccion_1_a_5: number | null;
+}
+
+const COLUMNA_MANUAL_POR_FACTOR: Record<string, keyof FilaBonoManualValores> = {
+  ambicion_proyeccion: "valor_1_a_5",
+  madurez_tecnologica: "madurez_tecnologica_1_a_5",
+  escalabilidad_modelo: "escalabilidad_1_a_5",
+  traccion_temprana: "traccion_1_a_5",
+};
+
+/**
+ * Recalcula la bonificación total en el navegador, en tiempo real, mientras
+ * el panel evaluador mueve los sliders de los 4 factores cualitativos —
+ * ANTES de guardar. Reproduce la misma fórmula que
+ * calcularBonificacionDesdeDatos() en scoring.ts (la que realmente corre en
+ * el servidor y calcula lo que se guarda), con una sola diferencia
+ * intencional: para el evaluador actual usa el valor que el slider tiene en
+ * este instante, en vez de su último valor guardado en la base de datos, de
+ * modo que la cifra "Bonificación total estimada" reaccione al tiro cuando
+ * se mueve un slider, en vez de solo actualizarse después de guardar.
+ *
+ * `detalleAutomatico` son los puntos ya calculados en el servidor para los
+ * factores automáticos (tipo de innovación, alcance, financiamiento previo):
+ * esos no dependen de los sliders, así que no hace falta recalcularlos acá.
+ * `otrosValoresManuales` son las filas guardadas de bonificaciones_manuales
+ * de TODOS los demás evaluadores (sin incluir al actual) para esta
+ * postulación.
+ */
+export function calcularBonoEnVivo(
+  factores: FactorBonificacion[],
+  detalleAutomatico: Record<string, number>,
+  otrosValoresManuales: FilaBonoManualValores[],
+  valoresSliderActual: {
+    madurezTecnologica: number;
+    escalabilidadModelo: number;
+    traccionTemprana: number;
+    ambicionProyeccion: number;
+  },
+  puntajeMaximo: number
+): number {
+  const sliderPorColumna: Record<keyof FilaBonoManualValores, number> = {
+    madurez_tecnologica_1_a_5: valoresSliderActual.madurezTecnologica,
+    escalabilidad_1_a_5: valoresSliderActual.escalabilidadModelo,
+    traccion_1_a_5: valoresSliderActual.traccionTemprana,
+    valor_1_a_5: valoresSliderActual.ambicionProyeccion,
+  };
+
+  let totalPonderado = 0;
+  let pesoTotal = 0;
+
+  for (const factor of factores) {
+    const peso = factor.peso ?? 0;
+    const columnaManual = COLUMNA_MANUAL_POR_FACTOR[factor.id];
+
+    let puntosFactor: number;
+    if (columnaManual) {
+      const otros = otrosValoresManuales
+        .map((f) => f[columnaManual])
+        .filter((v): v is number => v !== null);
+      const todos = [...otros, sliderPorColumna[columnaManual]];
+      const promedio1a5 = todos.reduce((a, b) => a + b, 0) / todos.length;
+      puntosFactor = ((promedio1a5 - 1) / 4) * 10;
+    } else {
+      if (detalleAutomatico[factor.id] === undefined) continue;
+      puntosFactor = detalleAutomatico[factor.id];
+    }
+
+    totalPonderado += puntosFactor * peso;
+    pesoTotal += peso;
+  }
+
+  if (pesoTotal === 0) return 0;
+  const puntaje0a10 = totalPonderado / pesoTotal;
+  return Math.round(((puntaje0a10 / 10) * puntajeMaximo) * 100) / 100;
+}
+
 export function calcularPuntajeCriterio(
   nivelSeleccionado: string | null | undefined,
   criterio: Criterio
