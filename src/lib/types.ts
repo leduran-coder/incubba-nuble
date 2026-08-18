@@ -77,9 +77,20 @@ export interface BonificacionManual {
   postulacion_id: number;
   evaluador_id: number;
   valor_1_a_5: number | null;
+  madurez_tecnologica_1_a_5: number | null;
+  escalabilidad_1_a_5: number | null;
+  traccion_1_a_5: number | null;
   comentario: string | null;
   creado_en: string;
   actualizado_en: string;
+}
+
+export interface BonificacionManualValores {
+  valor_1_a_5: number | null;
+  madurez_tecnologica_1_a_5: number | null;
+  escalabilidad_1_a_5: number | null;
+  traccion_1_a_5: number | null;
+  comentario: string | null;
 }
 
 export interface ConfiguracionClave {
