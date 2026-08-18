@@ -1,0 +1,302 @@
+@import "tailwindcss";
+
+/*
+ * Identidad visual de Incubba Ñuble UBB — portada 1:1 desde config/theme.py
+ * de la versión Streamlit (misma paleta, mismos degradados). Los colores se
+ * declaran acá y Tailwind los expone automáticamente como utilidades
+ * (bg-morado, text-menta, etc.) gracias al bloque @theme de Tailwind v4.
+ */
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+
+  --color-morado: #684182;
+  --color-morado-vibrante: #7c3aed;
+  --color-morado-oscuro: #4a2b60;
+  --color-menta: #2dd4bf;
+  --color-menta-claro: #96d4ce;
+  --color-navy-oscuro: #0f172a;
+  --color-navy-medio: #1e293b;
+  --color-gris-fondo: #f8fafc;
+  --color-gris-borde: #e2e8f0;
+  --color-gris-texto: #0f172a;
+  --color-gris-muted: #64748b;
+
+  --gradiente-hero: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #581c87 100%);
+  --gradiente-boton: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
+  --gradiente-card-accent: linear-gradient(90deg, #7c3aed 0%, #2dd4bf 100%);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-morado: var(--color-morado);
+  --color-morado-vibrante: var(--color-morado-vibrante);
+  --color-morado-oscuro: var(--color-morado-oscuro);
+  --color-menta: var(--color-menta);
+  --color-menta-claro: var(--color-menta-claro);
+  --color-navy-oscuro: var(--color-navy-oscuro);
+  --color-navy-medio: var(--color-navy-medio);
+  --color-gris-fondo: var(--color-gris-fondo);
+  --color-gris-borde: var(--color-gris-borde);
+  --color-gris-texto: var(--color-gris-texto);
+  --color-gris-muted: var(--color-gris-muted);
+  --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* ============================= Barra lateral ============================= */
+.app-sidebar {
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.25);
+}
+
+.app-sidebar .nav-link {
+  color: #f1f5f9;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border-radius: 10px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid transparent;
+}
+
+.app-sidebar .nav-link:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #38bdf8;
+  transform: translateX(4px);
+  border-color: rgba(56, 189, 248, 0.2);
+}
+
+.app-sidebar .nav-link.active {
+  background: linear-gradient(90deg, #7c3aed 0%, #4f46e5 100%);
+  color: #ffffff;
+  font-weight: 700;
+  border-left: 4px solid #2dd4bf;
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.4);
+}
+
+/* ================================ Hero =================================== */
+.hero-container {
+  background: var(--gradiente-hero);
+  border-radius: 20px;
+  padding: 28px 36px;
+  margin-bottom: 28px;
+  color: #ffffff;
+  box-shadow:
+    0 10px 30px -5px rgba(30, 27, 75, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.hero-container::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 350px;
+  height: 350px;
+  background: radial-gradient(circle, rgba(45, 212, 191, 0.25) 0%, rgba(124, 58, 237, 0) 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.hero-content {
+  flex: 1;
+  z-index: 1;
+}
+
+.hero-logo-box {
+  background: #ffffff;
+  padding: 14px 20px;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 240px;
+  flex-shrink: 0;
+  z-index: 1;
+  transition: transform 0.3s ease;
+}
+
+.hero-logo-box:hover {
+  transform: scale(1.03);
+}
+
+.hero-title {
+  font-size: clamp(1.4rem, 2.5vw, 2.2rem);
+  font-weight: 800;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: #ffffff;
+}
+
+.hero-sub {
+  font-size: clamp(0.9rem, 1.2vw, 1.05rem);
+  margin: 0 0 12px 0;
+  color: #cbd5e1;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.pill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(8px);
+  color: #2dd4bf;
+  border: 1px solid rgba(45, 212, 191, 0.35);
+  font-weight: 700;
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.pill-dot {
+  width: 8px;
+  height: 8px;
+  background: #2dd4bf;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #2dd4bf;
+  animation: pulseDot 2s infinite;
+}
+
+@keyframes pulseDot {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 0.7;
+  }
+}
+
+/* ============================= Tarjetas de métricas ======================= */
+.metric-card {
+  background: #ffffff;
+  border: 1px solid var(--color-gris-borde);
+  border-radius: 16px;
+  padding: 18px 20px;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.05),
+    0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.metric-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--gradiente-card-accent);
+}
+
+.metric-card:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 12px 20px -3px rgba(124, 58, 237, 0.12),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  border-color: #cbd5e1;
+}
+
+.metric-label {
+  color: var(--color-gris-muted);
+  font-weight: 600;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.metric-value {
+  color: var(--color-gris-texto);
+  font-weight: 800;
+  font-size: 1.85rem;
+}
+
+/* ================================ Botones ================================= */
+.btn-primary {
+  background: var(--gradiente-boton);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-weight: 700;
+  padding: 10px 22px;
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.3);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.45);
+  filter: brightness(1.08);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.card {
+  background: #ffffff;
+  border: 1px solid var(--color-gris-borde);
+  border-radius: 16px;
+}
+
+@media (max-width: 768px) {
+  .hero-container {
+    flex-direction: column-reverse;
+    text-align: center;
+    padding: 22px 18px;
+    gap: 16px;
+  }
+  .hero-logo-box {
+    max-width: 180px;
+    margin: 0 auto;
+    padding: 10px 16px;
+  }
+}
