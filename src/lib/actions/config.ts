@@ -77,7 +77,7 @@ export async function importarPostulaciones(
         ha_levantado_financiamiento, detalle_financiamiento, cree_que_es_innovacion,
         por_que_innovador, tipo_potencial_innovador, tipo_innovacion, alcance_innovacion,
         sector_area_impacto, resultados_3_anios, impacto_esperado, num_personas_equipo,
-        descripcion_equipo, video_link, video_password, raw_json
+        descripcion_equipo, video_link, video_link_alternativo, video_password, raw_json
       ) values (
         ${correo}, ${val(fila, "nombres")}, ${val(fila, "apellido_paterno")}, ${val(fila, "apellido_materno")},
         ${run}, ${val(fila, "fecha_nacimiento")}, ${val(fila, "genero")},
@@ -90,7 +90,7 @@ export async function importarPostulaciones(
         ${val(fila, "ha_levantado_financiamiento")}, ${val(fila, "detalle_financiamiento")}, ${val(fila, "cree_que_es_innovacion")},
         ${val(fila, "por_que_innovador")}, ${val(fila, "tipo_potencial_innovador")}, ${val(fila, "tipo_innovacion")}, ${val(fila, "alcance_innovacion")},
         ${val(fila, "sector_area_impacto")}, ${val(fila, "resultados_3_anios")}, ${val(fila, "impacto_esperado")}, ${numEquipo},
-        ${val(fila, "descripcion_equipo")}, ${val(fila, "video_link")}, ${val(fila, "video_password")}, ${JSON.stringify(fila)}
+        ${val(fila, "descripcion_equipo")}, ${val(fila, "video_link")}, ${val(fila, "video_link_alternativo")}, ${val(fila, "video_password")}, ${JSON.stringify(fila)}
       )
     `;
     nuevas++;
