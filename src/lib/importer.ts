@@ -41,6 +41,7 @@ export const FIELD_DEFINITIONS: Array<[string, string, string[]]> = [
   ["num_personas_equipo", "N° de personas en el equipo", ["cuántas personas conforman su equipo"]],
   ["descripcion_equipo", "Descripción del equipo", ["describa a su equipo"]],
   ["video_link", "Enlace del video pitch", ["enlace donde podamos ver su video"]],
+  ["video_link_alternativo", "Enlace alternativo del video", ["enlace alternativo", "link alternativo", "otro enlace del video"]],
   ["video_password", "Contraseña del video", ["contraseña"]],
 ];
 
