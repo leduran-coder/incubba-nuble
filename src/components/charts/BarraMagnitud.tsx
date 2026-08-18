@@ -8,6 +8,35 @@ export interface ConteoItem {
   cantidad: number;
 }
 
+// Algunas respuestas del formulario son el texto completo de una alternativa
+// de opción múltiple (por ejemplo, "Disruptiva: crea un nuevo modelo de
+// negocio o transforma la manera en que se resuelve un problema...") en vez
+// de una palabra corta. Mostrar ese texto completo como etiqueta del eje
+// hacía que se superpusiera con las etiquetas de las barras vecinas. Para
+// evitarlo, se trunca el texto visible del eje a un largo fijo; el texto
+// completo sigue disponible al pasar el mouse por encima de la etiqueta
+// (title nativo del navegador) y en el tooltip que aparece al pasar el
+// mouse sobre la barra (que siempre usa el dato original, sin truncar).
+const MAX_CARACTERES_ETIQUETA = 26;
+
+function truncar(texto: string, maxCaracteres: number): string {
+  if (texto.length <= maxCaracteres) return texto;
+  return texto.slice(0, maxCaracteres - 1).trimEnd() + "…";
+}
+
+function TickEtiquetaEje(props: { x?: number; y?: number; payload?: { value: string } }) {
+  const { x = 0, y = 0, payload } = props;
+  const texto = String(payload?.value ?? "");
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <title>{texto}</title>
+      <text x={0} y={0} dy={4} textAnchor="end" fontSize={12} fill="#666">
+        {truncar(texto, MAX_CARACTERES_ETIQUETA)}
+      </text>
+    </g>
+  );
+}
+
 /**
  * Barra de un solo hue para comparar magnitud entre categorías (no
  * identidad) — replica utils/charts.py::barra_magnitud().
@@ -36,7 +65,7 @@ export function BarraMagnitud({
           {horizontal ? (
             <>
               <XAxis type="number" tick={{ fontSize: 12 }} />
-              <YAxis type="category" dataKey="etiqueta" width={140} tick={{ fontSize: 12 }} />
+              <YAxis type="category" dataKey="etiqueta" width={170} tick={<TickEtiquetaEje />} />
             </>
           ) : (
             <>
