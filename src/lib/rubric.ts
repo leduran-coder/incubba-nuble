@@ -437,6 +437,11 @@ export const CRITERIOS_ADICIONALES = {
   cupo_maximo: 40,
 };
 
+export interface NivelOrientativo {
+  nivel: number;
+  ayuda: string;
+}
+
 export interface FactorBonificacion {
   id: string;
   nombre: string;
@@ -445,8 +450,27 @@ export interface FactorBonificacion {
   mapeo?: Record<string, number>;
   escala?: string;
   conversion?: string;
+  descripcion?: string;
+  niveles_orientativos?: NivelOrientativo[];
 }
 
+/**
+ * Modelo de "potencial dinámico" (bonificación no exigida literalmente por las
+ * bases, punto 4.1: capacidad de crecer a tasas superiores al 20% anual).
+ *
+ * Combina 3 factores autorreportados por el postulante en el formulario con
+ * 4 factores evaluados por el panel en una escala de 1 a 5, inspirados en
+ * marcos usados para estimar potencial de crecimiento de emprendimientos en
+ * etapa temprana: el indicador de "high-growth expectation entrepreneurship"
+ * del Global Entrepreneurship Monitor (alcance de mercado e innovación), la
+ * escala TRL/MRL (madurez tecnológica y de mercado) que CORFO ya usa en otros
+ * instrumentos, y los factores de escalabilidad y tracción temprana que la
+ * literatura de aceleradoras (Startup Genome, métodos Berkus/Scorecard de
+ * valoración ángel) asocia con trayectorias de crecimiento acelerado.
+ *
+ * Los pesos son editables desde Configuración → Bonificación sin tocar
+ * código; los valores acá son solo el punto de partida sugerido.
+ */
 export const BONIFICACION_DEFAULT = {
   activa: true,
   puntaje_maximo: 10,
@@ -454,31 +478,93 @@ export const BONIFICACION_DEFAULT = {
     {
       id: "tipo_innovacion",
       nombre: "Tipo de potencial innovador declarado",
-      peso: 0.3,
+      peso: 0.15,
       fuente_formulario: "pregunta_32_tipo_potencial_innovador",
       mapeo: { Disruptiva: 10, Incremental: 6, Marginal: 2 },
     },
     {
       id: "alcance_innovacion",
       nombre: "Alcance proyectado de la innovación",
-      peso: 0.25,
+      peso: 0.15,
       fuente_formulario: "pregunta_34_alcance_innovacion",
       mapeo: { Internacional: 10, Nacional: 6, Regional: 3 },
     },
     {
       id: "financiamiento_previo",
       nombre: "Financiamiento público o privado ya levantado",
-      peso: 0.15,
+      peso: 0.1,
       fuente_formulario: "pregunta_28_ha_levantado_financiamiento",
       mapeo: { Sí: 10, No: 0 },
     },
     {
-      id: "ambicion_proyeccion",
-      nombre: "Ambición y credibilidad de la proyección a 3 años (evaluada por el panel)",
-      peso: 0.3,
+      id: "madurez_tecnologica",
+      nombre: "Madurez tecnológica y propiedad intelectual",
+      peso: 0.15,
       fuente_formulario: "evaluacion_manual_panel",
       escala: "slider_1_a_5",
       conversion: "puntos = (valor_1_a_5 - 1) / 4 * 10",
+      descripcion:
+        "Nivel de madurez de la tecnología o solución (escala TRL simplificada) y si existe " +
+        "propiedad intelectual registrada o en trámite (patente, modelo de utilidad, marca).",
+      niveles_orientativos: [
+        { nivel: 1, ayuda: "TRL 1-2: idea o investigación conceptual, sin prototipo." },
+        { nivel: 2, ayuda: "TRL 3-4: prototipo de laboratorio o validación inicial de componentes." },
+        { nivel: 3, ayuda: "TRL 5-6: prototipo validado en un entorno relevante (piloto controlado)." },
+        { nivel: 4, ayuda: "TRL 7-8: sistema demostrado funcionando en un entorno operacional real." },
+        {
+          nivel: 5,
+          ayuda: "TRL 9: tecnología probada en operación comercial; existe PI registrada o en trámite.",
+        },
+      ],
+    },
+    {
+      id: "escalabilidad_modelo",
+      nombre: "Escalabilidad del modelo de negocio",
+      peso: 0.2,
+      fuente_formulario: "evaluacion_manual_panel",
+      escala: "slider_1_a_5",
+      conversion: "puntos = (valor_1_a_5 - 1) / 4 * 10",
+      descripcion:
+        "Qué tan bajo es el costo marginal de atender un cliente adicional, qué tan replicable " +
+        "es el modelo fuera de Ñuble sin rediseñarlo, y si existen efectos de red.",
+      niveles_orientativos: [
+        {
+          nivel: 1,
+          ayuda: "Alto costo marginal por cliente adicional (servicio local intensivo en mano de obra); difícil de replicar fuera de la comuna.",
+        },
+        { nivel: 3, ayuda: "Costo marginal moderado; el modelo es replicable en otras regiones con ajustes." },
+        {
+          nivel: 5,
+          ayuda: "Costo marginal bajo (plataforma/software), replicable geográficamente y con efectos de red.",
+        },
+      ],
+    },
+    {
+      id: "traccion_temprana",
+      nombre: "Tracción temprana validada",
+      peso: 0.15,
+      fuente_formulario: "evaluacion_manual_panel",
+      escala: "slider_1_a_5",
+      conversion: "puntos = (valor_1_a_5 - 1) / 4 * 10",
+      descripcion:
+        "Evidencia concreta de demanda ya validada: cartas de intención, pilotos, lista de " +
+        "espera, ventas o alianzas con clientes/socios ancla.",
+      niveles_orientativos: [
+        { nivel: 1, ayuda: "Sin evidencia de demanda validada; solo hipótesis del equipo." },
+        { nivel: 3, ayuda: "Lista de espera, cartas de intención o pilotos en curso." },
+        { nivel: 5, ayuda: "Pilotos o ventas con clientes ancla, alianzas estratégicas ya firmadas." },
+      ],
+    },
+    {
+      id: "ambicion_proyeccion",
+      nombre: "Ambición y credibilidad de la proyección de crecimiento a 3 años",
+      peso: 0.1,
+      fuente_formulario: "evaluacion_manual_panel",
+      escala: "slider_1_a_5",
+      conversion: "puntos = (valor_1_a_5 - 1) / 4 * 10",
+      descripcion:
+        "Qué tan creíble (no solo ambiciosa) es la proyección de crecimiento del equipo, " +
+        "considerando su capacidad de ejecución y redes de apoyo para escalar.",
     },
   ] as FactorBonificacion[],
 };
