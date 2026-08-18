@@ -46,6 +46,7 @@ export interface Postulacion {
   num_personas_equipo: number | null;
   descripcion_equipo: string | null;
   video_link: string | null;
+  video_link_alternativo: string | null;
   video_password: string | null;
   raw_json: string | null;
   creado_en: string;
