@@ -4,8 +4,8 @@ import { Hero } from "@/components/Hero";
 import { EvaluacionPanel } from "@/components/EvaluacionPanel";
 import { listarPostulaciones } from "@/lib/postulaciones";
 import { nombreCompleto, nombreProyecto } from "@/lib/types";
-import { ETAPA_1, ETAPA_2, ETAPA_3 } from "@/lib/rubric";
-import { respuestasEvaluador, bonoManualEvaluador } from "@/lib/evaluaciones";
+import { ETAPA_1, ETAPA_2, ETAPA_3, BONIFICACION_DEFAULT, type FactorBonificacion } from "@/lib/rubric";
+import { respuestasEvaluador, bonoManualEvaluador, bonoManualDeOtrosEvaluadores } from "@/lib/evaluaciones";
 import { promedioEtapa, estadoAdmisibilidad, calcularBonificacion } from "@/lib/scoring";
 import { getConfig } from "@/lib/config-store";
 
@@ -47,7 +47,8 @@ export default async function EvaluacionPage({
   const admisibilidad = await estadoAdmisibilidad(postulacion.id);
   const bonoManual = await bonoManualEvaluador(postulacion.id, evaluadorId);
   const bonoCalculado = await calcularBonificacion(postulacion);
-  const config = await getConfig<{ puntaje_maximo?: number }>("bonificacion");
+  const otrosValoresManuales = await bonoManualDeOtrosEvaluadores(postulacion.id, evaluadorId);
+  const config = await getConfig<{ puntaje_maximo?: number; factores?: FactorBonificacion[] }>("bonificacion");
 
   return (
     <div>
@@ -66,6 +67,8 @@ export default async function EvaluacionPage({
         admisibilidad={admisibilidad}
         bonoManual={bonoManual}
         bonoCalculado={bonoCalculado}
+        otrosValoresManuales={otrosValoresManuales}
+        factoresBonificacion={config.factores ?? BONIFICACION_DEFAULT.factores}
         resumenAutomatico={{
           tipo_potencial_innovador: postulacion.tipo_potencial_innovador,
           alcance_innovacion: postulacion.alcance_innovacion,
