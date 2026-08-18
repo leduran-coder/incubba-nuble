@@ -32,12 +32,26 @@ export function CsvImportTab() {
     });
   }
 
+  const TAMANO_LOTE = 40;
+
   function importar() {
     if (!filas) return;
     setResultado(null);
     startTransition(async () => {
-      const res = await importarPostulaciones(filas, mapeo, evitarDup);
-      setResultado(`Importación completa: ${res.nuevas} postulaciones nuevas, ${res.omitidas} omitidas por duplicado.`);
+      // Se envía en lotes (en vez de todas las filas en una sola petición)
+      // para no toparse con el límite de tamaño de envío del servidor
+      // cuando hay muchas postulaciones o respuestas de texto largas.
+      let nuevas = 0;
+      let omitidas = 0;
+      const totalLotes = Math.ceil(filas.length / TAMANO_LOTE);
+      for (let i = 0; i < filas.length; i += TAMANO_LOTE) {
+        const lote = filas.slice(i, i + TAMANO_LOTE);
+        setResultado(`Importando lote ${Math.floor(i / TAMANO_LOTE) + 1} de ${totalLotes}...`);
+        const res = await importarPostulaciones(lote, mapeo, evitarDup);
+        nuevas += res.nuevas;
+        omitidas += res.omitidas;
+      }
+      setResultado(`Importación completa: ${nuevas} postulaciones nuevas, ${omitidas} omitidas por duplicado.`);
     });
   }
 
