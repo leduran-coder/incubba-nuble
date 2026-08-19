@@ -7,12 +7,26 @@
  * Portado desde db/config_store.py.
  */
 import { sql } from "@/lib/db";
-import { PESO_ETAPAS_DEFAULT, BONIFICACION_DEFAULT, CRITERIOS_ADICIONALES, type FactorBonificacion } from "@/lib/rubric";
+import {
+  PESO_ETAPAS_DEFAULT,
+  BONIFICACION_DEFAULT,
+  CRITERIOS_ADICIONALES,
+  SECTORES_ESTRATEGICOS_DEFAULT,
+  type FactorBonificacion,
+} from "@/lib/rubric";
+
+export interface ConfigIA {
+  activa?: boolean;
+}
+
+export const IA_SUGERENCIA_DEFAULT: ConfigIA = { activa: false };
 
 const DEFAULTS: Record<string, unknown> = {
   peso_etapas: PESO_ETAPAS_DEFAULT,
   bonificacion: BONIFICACION_DEFAULT,
   criterios_adicionales: CRITERIOS_ADICIONALES,
+  sectores_estrategicos: SECTORES_ESTRATEGICOS_DEFAULT,
+  ia_sugerencia: IA_SUGERENCIA_DEFAULT,
 };
 
 export async function getConfig<T = Record<string, unknown>>(clave: string): Promise<T> {
@@ -79,4 +93,25 @@ export async function getConfigBonificacion(): Promise<ConfigBonificacion> {
   };
   await setConfig("bonificacion", completo);
   return completo;
+}
+
+/**
+ * Lista de sectores/industrias estratégicas usada por el factor automático
+ * "Alineación con sectores estratégicos regionales". Si aún no hay nada
+ * guardado (o quedó vacía), se usa la lista sugerida por defecto.
+ */
+export async function getSectoresEstrategicos(): Promise<string[]> {
+  const sectores = await getConfig<string[]>("sectores_estrategicos");
+  return Array.isArray(sectores) && sectores.length > 0 ? sectores : SECTORES_ESTRATEGICOS_DEFAULT;
+}
+
+/**
+ * Indica si la función de sugerencias con IA (Propuesta 2) está activa.
+ * Desactivada por defecto: es una decisión de gobernanza deliberada, para
+ * que el uso de IA en la evaluación quede sujeto a una activación explícita
+ * de un/a administrador/a.
+ */
+export async function iaSugerenciaActiva(): Promise<boolean> {
+  const config = await getConfig<ConfigIA>("ia_sugerencia");
+  return config.activa === true;
 }
