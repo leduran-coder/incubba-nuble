@@ -34,11 +34,11 @@ export function EvaluacionAuxiliarIA({
     setError(null);
     setResultado(null);
     startTransition(async () => {
-      try {
-        const r = await generarEvaluacionCompletaIA(postulacionId);
-        setResultado(r);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "No se pudo generar la evaluación completa con IA.");
+      const res = await generarEvaluacionCompletaIA(postulacionId);
+      if (res.ok) {
+        setResultado(res.data);
+      } else {
+        setError(res.error);
       }
     });
   }
