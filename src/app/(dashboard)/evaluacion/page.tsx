@@ -7,7 +7,7 @@ import { nombreCompleto, nombreProyecto } from "@/lib/types";
 import { ETAPA_1, ETAPA_2, ETAPA_3, BONIFICACION_DEFAULT } from "@/lib/rubric";
 import { respuestasEvaluador, bonoManualEvaluador, bonoManualDeOtrosEvaluadores } from "@/lib/evaluaciones";
 import { promedioEtapa, estadoAdmisibilidad, calcularBonificacion } from "@/lib/scoring";
-import { getConfigBonificacion } from "@/lib/config-store";
+import { getConfigBonificacion, iaSugerenciaActiva } from "@/lib/config-store";
 
 export default async function EvaluacionPage({
   searchParams,
@@ -49,6 +49,7 @@ export default async function EvaluacionPage({
   const bonoCalculado = await calcularBonificacion(postulacion);
   const otrosValoresManuales = await bonoManualDeOtrosEvaluadores(postulacion.id, evaluadorId);
   const config = await getConfigBonificacion();
+  const iaActiva = await iaSugerenciaActiva();
 
   return (
     <div>
@@ -73,8 +74,10 @@ export default async function EvaluacionPage({
           tipo_potencial_innovador: postulacion.tipo_potencial_innovador,
           alcance_innovacion: postulacion.alcance_innovacion,
           ha_levantado_financiamiento: postulacion.ha_levantado_financiamiento,
+          sector_industria: postulacion.sector_industria,
         }}
         puntajeMaximoBono={config.puntaje_maximo ?? 10}
+        iaActiva={iaActiva}
       />
     </div>
   );
