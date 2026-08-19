@@ -6,6 +6,9 @@ import type { Etapa, FactorBonificacion, FilaBonoManualValores } from "@/lib/rub
 import { calcularBonoEnVivo } from "@/lib/rubric";
 import type { BonificacionManualValores } from "@/lib/types";
 import { guardarBonificacionManual, guardarEvaluacionEtapa } from "@/lib/actions/evaluacion";
+import { generarSugerenciaIA } from "@/lib/actions/ia";
+import type { SugerenciaIA } from "@/lib/ai-sugerencia";
+import { EvaluacionAuxiliarIA } from "@/components/EvaluacionAuxiliarIA";
 
 interface EtapaData {
   etapa: Etapa;
@@ -27,8 +30,10 @@ interface Props {
     tipo_potencial_innovador: string | null;
     alcance_innovacion: string | null;
     ha_levantado_financiamiento: string | null;
+    sector_industria: string | null;
   };
   puntajeMaximoBono: number;
+  iaActiva: boolean;
 }
 
 const COLOR_ADMISIBILIDAD: Record<string, string> = {
@@ -48,6 +53,7 @@ export function EvaluacionPanel({
   factoresBonificacion,
   resumenAutomatico,
   puntajeMaximoBono,
+  iaActiva,
 }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState(0);
@@ -56,7 +62,13 @@ export function EvaluacionPanel({
     router.push(`/evaluacion?id=${id}`);
   }
 
-  const tabs = [...etapasData.map((e) => e.etapa.nombre), "🚀 Bonificación potencial dinámico"];
+  const bonoTabIndex = etapasData.length;
+  const iaTabIndex = etapasData.length + 1;
+  const tabs = [
+    ...etapasData.map((e) => e.etapa.nombre),
+    "🚀 Bonificación potencial dinámico",
+    "🤖 Evaluación Auxiliar IA",
+  ];
 
   return (
     <div>
@@ -92,7 +104,7 @@ export function EvaluacionPanel({
           postulacionId={postulacionId}
           data={etapasData[tab]}
         />
-      ) : (
+      ) : tab === bonoTabIndex ? (
         <BonoTab
           postulacionId={postulacionId}
           bonoManual={bonoManual}
@@ -101,8 +113,11 @@ export function EvaluacionPanel({
           factoresBonificacion={factoresBonificacion}
           resumenAutomatico={resumenAutomatico}
           puntajeMaximoBono={puntajeMaximoBono}
+          iaActiva={iaActiva}
         />
-      )}
+      ) : tab === iaTabIndex ? (
+        <EvaluacionAuxiliarIA postulacionId={postulacionId} iaActiva={iaActiva} />
+      ) : null}
 
       {tab === 0 ? (
         <p className="mt-5 text-sm">
@@ -248,6 +263,15 @@ const FACTORES_SLIDER: FactorSlider[] = [
   },
 ];
 
+// Traduce el id de cada slider (FACTORES_SLIDER, arriba) a la llave
+// correspondiente en la sugerencia que devuelve la IA (ai-sugerencia.ts).
+const LLAVE_SUGERENCIA_POR_SLIDER: Record<FactorSlider["id"], keyof SugerenciaIA> = {
+  madurezTecnologica: "madurez_tecnologica",
+  escalabilidadModelo: "escalabilidad_modelo",
+  traccionTemprana: "traccion_temprana",
+  ambicionProyeccion: "ambicion_proyeccion",
+};
+
 function BonoTab({
   postulacionId,
   bonoManual,
@@ -256,6 +280,7 @@ function BonoTab({
   factoresBonificacion,
   resumenAutomatico,
   puntajeMaximoBono,
+  iaActiva,
 }: {
   postulacionId: number;
   bonoManual: BonificacionManualValores | null;
@@ -264,6 +289,7 @@ function BonoTab({
   factoresBonificacion: FactorBonificacion[];
   resumenAutomatico: Props["resumenAutomatico"];
   puntajeMaximoBono: number;
+  iaActiva: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -275,6 +301,28 @@ function BonoTab({
   });
   const [comentario, setComentario] = useState(bonoManual?.comentario ?? "");
   const [guardado, setGuardado] = useState(false);
+
+  const [sugerencia, setSugerencia] = useState<SugerenciaIA | null>(null);
+  const [errorIA, setErrorIA] = useState<string | null>(null);
+  const [isPendingIA, startTransitionIA] = useTransition();
+
+  function pedirSugerenciaIA() {
+    setErrorIA(null);
+    startTransitionIA(async () => {
+      try {
+        const s = await generarSugerenciaIA(postulacionId);
+        setSugerencia(s);
+      } catch (e) {
+        setErrorIA(e instanceof Error ? e.message : "No se pudo generar la sugerencia con IA.");
+      }
+    });
+  }
+
+  function usarSugerencia(sliderId: FactorSlider["id"]) {
+    if (!sugerencia) return;
+    const valor = sugerencia[LLAVE_SUGERENCIA_POR_SLIDER[sliderId]].valor_1_a_5;
+    setValores((v) => ({ ...v, [sliderId]: valor }));
+  }
 
   // Se recalcula al vuelo cada vez que se mueve un slider, usando el mismo
   // criterio que se guardará al presionar "Guardar" — así la cifra de abajo
@@ -310,7 +358,7 @@ function BonoTab({
       </p>
 
       <p className="font-semibold text-gris-texto mb-2">Factores automáticos (declarados por el postulante)</p>
-      <div className="grid sm:grid-cols-3 gap-3 mb-6">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <div className="metric-card">
           <div className="metric-label">Tipo de potencial innovador</div>
           <div className="metric-value text-lg">{resumenAutomatico.tipo_potencial_innovador ?? "—"}</div>
@@ -323,6 +371,19 @@ function BonoTab({
           <div className="metric-label">Financiamiento previo</div>
           <div className="metric-value text-lg">{resumenAutomatico.ha_levantado_financiamiento ?? "—"}</div>
         </div>
+        <div className="metric-card">
+          <div className="metric-label">Alineación sectorial</div>
+          <div className="metric-value text-lg">
+            {resumenAutomatico.sector_industria ?? "—"}
+          </div>
+          <p className="text-xs text-gris-muted mt-1">
+            {bonoCalculado.detalle.alineacion_sectorial === undefined
+              ? "Sin sector declarado (factor omitido)"
+              : bonoCalculado.detalle.alineacion_sectorial >= 10
+              ? "✅ Coincide con un sector estratégico"
+              : "❌ No coincide con la lista de sectores estratégicos"}
+          </p>
+        </div>
       </div>
 
       <p className="font-semibold text-gris-texto mb-1">Factores cualitativos del panel</p>
@@ -330,26 +391,68 @@ function BonoTab({
         Califica cada uno de 1 a 5 según la evidencia presentada en la postulación.
       </p>
 
+      {iaActiva ? (
+        <div className="rounded-lg border border-morado-vibrante/30 bg-morado-vibrante/5 p-3 mb-4">
+          <p className="text-sm text-gris-texto mb-2">
+            ✨ Puedes pedirle a la IA una sugerencia preliminar de 1 a 5 para estos 4 factores,
+            basada en el texto de la postulación. Es solo un punto de partida: siempre puedes
+            ajustarla o ignorarla; nada se guarda hasta que presiones &quot;Guardar bonificación
+            cualitativa&quot; más abajo.
+          </p>
+          <button
+            type="button"
+            onClick={pedirSugerenciaIA}
+            disabled={isPendingIA}
+            className="btn-primary text-sm"
+          >
+            {isPendingIA ? "Generando sugerencia..." : "Generar sugerencia con IA"}
+          </button>
+          {errorIA ? (
+            <p className="text-sm text-red-600 mt-2 bg-red-50 border border-red-200 rounded-lg p-2">
+              {errorIA}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="flex flex-col gap-5 mb-4">
-        {FACTORES_SLIDER.map((factor) => (
-          <div key={factor.id}>
-            <label className="block font-semibold text-gris-texto mb-1">{factor.titulo}</label>
-            <p className="text-xs text-gris-muted mb-2">{factor.pregunta}</p>
-            <input
-              type="range"
-              min={1}
-              max={5}
-              value={valores[factor.id]}
-              onChange={(e) => setValores((v) => ({ ...v, [factor.id]: Number(e.target.value) }))}
-              className="w-full"
-            />
-            <div className="flex justify-between text-xs text-gris-muted">
-              <span>1 = {factor.ancla1}</span>
-              <span className="font-bold text-morado-vibrante text-base">{valores[factor.id]}</span>
-              <span className="text-right">5 = {factor.ancla5}</span>
+        {FACTORES_SLIDER.map((factor) => {
+          const sugerenciaFactor = sugerencia?.[LLAVE_SUGERENCIA_POR_SLIDER[factor.id]];
+          return (
+            <div key={factor.id}>
+              <label className="block font-semibold text-gris-texto mb-1">{factor.titulo}</label>
+              <p className="text-xs text-gris-muted mb-2">{factor.pregunta}</p>
+              <input
+                type="range"
+                min={1}
+                max={5}
+                value={valores[factor.id]}
+                onChange={(e) => setValores((v) => ({ ...v, [factor.id]: Number(e.target.value) }))}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-gris-muted">
+                <span>1 = {factor.ancla1}</span>
+                <span className="font-bold text-morado-vibrante text-base">{valores[factor.id]}</span>
+                <span className="text-right">5 = {factor.ancla5}</span>
+              </div>
+              {sugerenciaFactor ? (
+                <div className="mt-2 rounded-lg border border-gris-borde bg-gris-fondo p-2.5 text-xs">
+                  <p className="text-gris-texto">
+                    <strong>Sugerencia IA: {sugerenciaFactor.valor_1_a_5}/5.</strong>{" "}
+                    {sugerenciaFactor.justificacion}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => usarSugerencia(factor.id)}
+                    className="mt-1.5 text-morado-vibrante font-semibold hover:underline"
+                  >
+                    Usar esta sugerencia
+                  </button>
+                </div>
+              ) : null}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <textarea
