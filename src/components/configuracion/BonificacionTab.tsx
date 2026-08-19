@@ -3,16 +3,18 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { FactorBonificacion } from "@/lib/rubric";
-import { guardarConfigBonificacion } from "@/lib/actions/config";
+import { guardarConfigBonificacion, guardarSectoresEstrategicos } from "@/lib/actions/config";
 
 export function BonificacionTab({
   activaInicial,
   puntajeMaximoInicial,
   factoresIniciales,
+  sectoresEstrategicosIniciales,
 }: {
   activaInicial: boolean;
   puntajeMaximoInicial: number;
   factoresIniciales: FactorBonificacion[];
+  sectoresEstrategicosIniciales: string[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -20,6 +22,10 @@ export function BonificacionTab({
   const [puntajeMaximo, setPuntajeMaximo] = useState(puntajeMaximoInicial);
   const [factores, setFactores] = useState(factoresIniciales);
   const [guardado, setGuardado] = useState(false);
+
+  const [sectoresTexto, setSectoresTexto] = useState(sectoresEstrategicosIniciales.join("\n"));
+  const [guardandoSectores, startTransitionSectores] = useTransition();
+  const [sectoresGuardados, setSectoresGuardados] = useState(false);
 
   function actualizarPeso(id: string, peso: number) {
     setFactores((fs) => fs.map((f) => (f.id === id ? { ...f, peso } : f)));
@@ -30,6 +36,16 @@ export function BonificacionTab({
     startTransition(async () => {
       await guardarConfigBonificacion(activa, puntajeMaximo, factores);
       setGuardado(true);
+      router.refresh();
+    });
+  }
+
+  function guardarSectores() {
+    setSectoresGuardados(false);
+    startTransitionSectores(async () => {
+      const lista = sectoresTexto.split("\n");
+      await guardarSectoresEstrategicos(lista);
+      setSectoresGuardados(true);
       router.refresh();
     });
   }
@@ -86,6 +102,29 @@ export function BonificacionTab({
       <button onClick={guardar} disabled={isPending} className="btn-primary">
         {isPending ? "Guardando..." : "Guardar configuración de bonificación"}
       </button>
+
+      <div className="mt-6 pt-5 border-t border-gris-borde">
+        <p className="font-semibold text-gris-texto text-sm mb-1">
+          Sectores estratégicos regionales (uno por línea)
+        </p>
+        <p className="text-xs text-gris-muted mb-2">
+          Se usan para el factor automático &quot;Alineación con sectores estratégicos
+          regionales&quot;: si el sector o industria que declaró el postulante coincide (aunque sea
+          parcialmente) con alguna línea de esta lista, obtiene el puntaje máximo de ese factor.
+        </p>
+        <textarea
+          value={sectoresTexto}
+          onChange={(e) => setSectoresTexto(e.target.value)}
+          rows={6}
+          className="w-full rounded-lg border border-gris-borde px-3 py-2 text-sm mb-3"
+        />
+        {sectoresGuardados ? (
+          <p className="text-sm text-green-700 mb-3">Lista de sectores estratégicos actualizada.</p>
+        ) : null}
+        <button onClick={guardarSectores} disabled={guardandoSectores} className="btn-primary">
+          {guardandoSectores ? "Guardando..." : "Guardar sectores estratégicos"}
+        </button>
+      </div>
     </div>
   );
 }
