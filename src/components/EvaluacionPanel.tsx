@@ -309,11 +309,11 @@ function BonoTab({
   function pedirSugerenciaIA() {
     setErrorIA(null);
     startTransitionIA(async () => {
-      try {
-        const s = await generarSugerenciaIA(postulacionId);
-        setSugerencia(s);
-      } catch (e) {
-        setErrorIA(e instanceof Error ? e.message : "No se pudo generar la sugerencia con IA.");
+      const res = await generarSugerenciaIA(postulacionId);
+      if (res.ok) {
+        setSugerencia(res.data);
+      } else {
+        setErrorIA(res.error);
       }
     });
   }
