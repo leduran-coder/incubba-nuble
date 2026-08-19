@@ -76,6 +76,25 @@ function extraerJSON(texto: string): Record<string, { valor_1_a_5?: unknown; jus
   }
 }
 
+/**
+ * Convierte cualquier valor lanzado (incluyendo errores del SDK de
+ * Anthropic, que traen propiedades no serializables como `headers` o
+ * `response`) en un Error plano con solo un mensaje de texto. Esto evita que
+ * Next.js falle al intentar reenviar el error original al navegador — sin
+ * esto, un error de la API (por ejemplo una clave inválida o un límite de
+ * uso alcanzado) puede terminar mostrando el mensaje genérico "Minified
+ * React error #441" en vez de una explicación útil.
+ */
+function mensajeDeError(e: unknown): string {
+  if (e instanceof Error && typeof e.message === "string" && e.message) return e.message;
+  if (typeof e === "string") return e;
+  try {
+    return JSON.stringify(e);
+  } catch {
+    return "Ocurrió un error inesperado al llamar a la IA.";
+  }
+}
+
 function limpiarFactor(bruto: { valor_1_a_5?: unknown; justificacion?: unknown } | undefined): SugerenciaFactor {
   const valorNum = Number(bruto?.valor_1_a_5);
   const valor = Number.isFinite(valorNum) ? Math.min(5, Math.max(1, Math.round(valorNum))) : 3;
@@ -119,23 +138,27 @@ Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional antes ni de
   ${factores.map((f) => `"${f.id}": { "valor_1_a_5": <entero de 1 a 5>, "justificacion": "<texto breve>" }`).join(",\n  ")}
 }`;
 
-  const respuesta = await client.messages.create({
-    model: MODELO_IA,
-    max_tokens: 1200,
-    messages: [{ role: "user", content: prompt }],
-  });
+  try {
+    const respuesta = await client.messages.create({
+      model: MODELO_IA,
+      max_tokens: 1200,
+      messages: [{ role: "user", content: prompt }],
+    });
 
-  const textoRespuesta = respuesta.content
-    .filter((bloque): bloque is Anthropic.TextBlock => bloque.type === "text")
-    .map((bloque) => bloque.text)
-    .join("\n");
+    const textoRespuesta = respuesta.content
+      .filter((bloque): bloque is Anthropic.TextBlock => bloque.type === "text")
+      .map((bloque) => bloque.text)
+      .join("\n");
 
-  const json = extraerJSON(textoRespuesta);
+    const json = extraerJSON(textoRespuesta);
 
-  return {
-    madurez_tecnologica: limpiarFactor(json["madurez_tecnologica"]),
-    escalabilidad_modelo: limpiarFactor(json["escalabilidad_modelo"]),
-    traccion_temprana: limpiarFactor(json["traccion_temprana"]),
-    ambicion_proyeccion: limpiarFactor(json["ambicion_proyeccion"]),
-  };
+    return {
+      madurez_tecnologica: limpiarFactor(json["madurez_tecnologica"]),
+      escalabilidad_modelo: limpiarFactor(json["escalabilidad_modelo"]),
+      traccion_temprana: limpiarFactor(json["traccion_temprana"]),
+      ambicion_proyeccion: limpiarFactor(json["ambicion_proyeccion"]),
+    };
+  } catch (e) {
+    throw new Error(`Error al generar la sugerencia con IA: ${mensajeDeError(e)}`);
+  }
 }
