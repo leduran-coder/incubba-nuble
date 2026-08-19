@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { Hero } from "@/components/Hero";
 import { ConfiguracionTabs } from "@/components/configuracion/ConfiguracionTabs";
 import { listarUsuarios } from "@/lib/auth-users";
-import { getConfig, getConfigBonificacion } from "@/lib/config-store";
+import { getConfig, getConfigBonificacion, getSectoresEstrategicos, iaSugerenciaActiva } from "@/lib/config-store";
 
 export default async function ConfiguracionPage() {
   const session = await auth();
@@ -13,6 +13,8 @@ export default async function ConfiguracionPage() {
   const usuarios = await listarUsuarios();
   const bonificacion = await getConfigBonificacion();
   const pesoEtapas = await getConfig<Record<string, number>>("peso_etapas");
+  const sectoresEstrategicos = await getSectoresEstrategicos();
+  const iaActiva = await iaSugerenciaActiva();
 
   return (
     <div>
@@ -30,6 +32,8 @@ export default async function ConfiguracionPage() {
           factores: bonificacion.factores ?? [],
         }}
         pesoEtapas={{ etapa_2: pesoEtapas.etapa_2 ?? 0.65, etapa_3: pesoEtapas.etapa_3 ?? 0.35 }}
+        sectoresEstrategicos={sectoresEstrategicos}
+        iaActiva={iaActiva}
       />
     </div>
   );
