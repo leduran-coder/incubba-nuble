@@ -23,7 +23,7 @@
  * cálculo de una sola postulación.
  */
 import { sql } from "@/lib/db";
-import { getConfig, getConfigBonificacion } from "@/lib/config-store";
+import { getConfig, getConfigBonificacion, getSectoresEstrategicos } from "@/lib/config-store";
 import {
   ETAPA_1,
   ETAPAS_POR_ID,
@@ -116,7 +116,8 @@ function estadoAdmisibilidadDesdeLista(
 function calcularBonificacionDesdeDatos(
   postulacion: Postulacion,
   config: ConfigBonificacion,
-  filasManuales: FilaBonificacionManual[]
+  filasManuales: FilaBonificacionManual[],
+  sectoresEstrategicos: string[]
 ): { bono: number; detalle: Record<string, number> } {
   if (config.activa === false) return { bono: 0, detalle: {} };
 
@@ -152,6 +153,16 @@ function calcularBonificacionDesdeDatos(
       const promedio1a5 = promedioManual(columnaManual);
       if (promedio1a5 === null) continue;
       puntosFactor = ((promedio1a5 - 1) / 4) * 10;
+    } else if (factor.tipo === "lista_estrategica") {
+      const valorPostulante = postulacion.sector_industria;
+      if (!valorPostulante || !valorPostulante.trim()) continue;
+      const sectorNormalizado = valorPostulante.trim().toLowerCase();
+      const coincide = sectoresEstrategicos.some((s) => {
+        const sNormalizado = s.trim().toLowerCase();
+        if (!sNormalizado) return false;
+        return sectorNormalizado.includes(sNormalizado) || sNormalizado.includes(sectorNormalizado);
+      });
+      puntosFactor = coincide ? 10 : 0;
     } else {
       const valorPostulante = campoPorFactor[factor.id];
       const mapeo = factor.mapeo ?? {};
@@ -177,12 +188,18 @@ function calcularResultadoFinalDesdeDatos(
   pesoEtapas: Record<string, number>,
   configBono: ConfigBonificacion,
   evaluaciones: Evaluacion[],
-  filasManuales: FilaBonificacionManual[]
+  filasManuales: FilaBonificacionManual[],
+  sectoresEstrategicos: string[]
 ): ResultadoFinal {
   const { estado: estadoAdm, puntaje: puntajeAdm } = estadoAdmisibilidadDesdeLista(evaluaciones);
   const puntajeE2 = promedioEtapaDesdeLista(evaluaciones, "etapa_2");
   const puntajeE3 = promedioEtapaDesdeLista(evaluaciones, "etapa_3");
-  const { bono, detalle: detalleBono } = calcularBonificacionDesdeDatos(postulacion, configBono, filasManuales);
+  const { bono, detalle: detalleBono } = calcularBonificacionDesdeDatos(
+    postulacion,
+    configBono,
+    filasManuales,
+    sectoresEstrategicos
+  );
 
   const componentes: Array<[number, number]> = [];
   if (puntajeE2 !== null) componentes.push([puntajeE2, pesoEtapas.etapa_2 ?? 0]);
@@ -238,6 +255,7 @@ export async function calcularBonificacion(
   postulacion: Postulacion
 ): Promise<{ bono: number; detalle: Record<string, number> }> {
   const config = await getConfigBonificacion();
+  const sectoresEstrategicos = await getSectoresEstrategicos();
 
   const filasManuales = await sql<FilaBonificacionManual[]>`
     select valor_1_a_5, madurez_tecnologica_1_a_5, escalabilidad_1_a_5, traccion_1_a_5
@@ -245,7 +263,7 @@ export async function calcularBonificacion(
     where postulacion_id = ${postulacion.id}
   `;
 
-  return calcularBonificacionDesdeDatos(postulacion, config, filasManuales);
+  return calcularBonificacionDesdeDatos(postulacion, config, filasManuales, sectoresEstrategicos);
 }
 
 export interface ResultadoFinal {
@@ -261,7 +279,7 @@ export interface ResultadoFinal {
 }
 
 export async function calcularResultadoFinal(postulacion: Postulacion): Promise<ResultadoFinal> {
-  const [pesoEtapas, configBono, evaluaciones, filasManuales] = await Promise.all([
+  const [pesoEtapas, configBono, evaluaciones, filasManuales, sectoresEstrategicos] = await Promise.all([
     getConfig<Record<string, number>>("peso_etapas"),
     getConfigBonificacion(),
     sql<Evaluacion[]>`select * from evaluaciones where postulacion_id = ${postulacion.id}`,
@@ -270,9 +288,17 @@ export async function calcularResultadoFinal(postulacion: Postulacion): Promise<
       from bonificaciones_manuales
       where postulacion_id = ${postulacion.id}
     `,
+    getSectoresEstrategicos(),
   ]);
 
-  return calcularResultadoFinalDesdeDatos(postulacion, pesoEtapas, configBono, evaluaciones, filasManuales);
+  return calcularResultadoFinalDesdeDatos(
+    postulacion,
+    pesoEtapas,
+    configBono,
+    evaluaciones,
+    filasManuales,
+    sectoresEstrategicos
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -307,7 +333,7 @@ export async function tablaRanking(postulaciones: Postulacion[]): Promise<FilaRa
 
   const ids = postulaciones.map((p) => p.id);
 
-  const [pesoEtapas, configBono, todasEvaluaciones, todasBonificaciones] = await Promise.all([
+  const [pesoEtapas, configBono, todasEvaluaciones, todasBonificaciones, sectoresEstrategicos] = await Promise.all([
     getConfig<Record<string, number>>("peso_etapas"),
     getConfigBonificacion(),
     sql<Evaluacion[]>`select * from evaluaciones where postulacion_id = any(${ids})`,
@@ -316,6 +342,7 @@ export async function tablaRanking(postulaciones: Postulacion[]): Promise<FilaRa
       from bonificaciones_manuales
       where postulacion_id = any(${ids})
     `,
+    getSectoresEstrategicos(),
   ]);
 
   const evalPorPostulacion = new Map<number, Evaluacion[]>();
@@ -333,7 +360,14 @@ export async function tablaRanking(postulaciones: Postulacion[]): Promise<FilaRa
   const filas: Omit<FilaRanking, "ranking">[] = postulaciones.map((p) => {
     const evaluaciones = evalPorPostulacion.get(p.id) ?? [];
     const filasManuales = bonoPorPostulacion.get(p.id) ?? [];
-    const r = calcularResultadoFinalDesdeDatos(p, pesoEtapas, configBono, evaluaciones, filasManuales);
+    const r = calcularResultadoFinalDesdeDatos(
+      p,
+      pesoEtapas,
+      configBono,
+      evaluaciones,
+      filasManuales,
+      sectoresEstrategicos
+    );
     return {
       id: p.id,
       proyecto: nombreProyecto(p),
