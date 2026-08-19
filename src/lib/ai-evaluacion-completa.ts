@@ -85,6 +85,25 @@ function extraerJSON(texto: string): Record<string, { nivel_sugerido?: unknown; 
   }
 }
 
+/**
+ * Convierte cualquier valor lanzado (incluyendo errores del SDK de
+ * Anthropic, que traen propiedades no serializables como `headers` o
+ * `response`) en un Error plano con solo un mensaje de texto. Esto evita que
+ * Next.js falle al intentar reenviar el error original al navegador — sin
+ * esto, un error de la API (por ejemplo una clave inválida o un límite de
+ * uso alcanzado) puede terminar mostrando el mensaje genérico "Minified
+ * React error #441" en vez de una explicación útil.
+ */
+function mensajeDeError(e: unknown): string {
+  if (e instanceof Error && typeof e.message === "string" && e.message) return e.message;
+  if (typeof e === "string") return e;
+  try {
+    return JSON.stringify(e);
+  } catch {
+    return "Ocurrió un error inesperado al llamar a la IA.";
+  }
+}
+
 function limpiarCriterio(
   criterio: Criterio,
   bruto: { nivel_sugerido?: unknown; justificacion?: unknown } | undefined
@@ -138,24 +157,28 @@ Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional antes ni de
     .join(",\n  ")}
 }`;
 
-  const respuesta = await client.messages.create({
-    model: MODELO_IA,
-    max_tokens: 1500,
-    messages: [{ role: "user", content: prompt }],
-  });
+  try {
+    const respuesta = await client.messages.create({
+      model: MODELO_IA,
+      max_tokens: 1500,
+      messages: [{ role: "user", content: prompt }],
+    });
 
-  const textoRespuesta = respuesta.content
-    .filter((bloque): bloque is Anthropic.TextBlock => bloque.type === "text")
-    .map((bloque) => bloque.text)
-    .join("\n");
+    const textoRespuesta = respuesta.content
+      .filter((bloque): bloque is Anthropic.TextBlock => bloque.type === "text")
+      .map((bloque) => bloque.text)
+      .join("\n");
 
-  const json = extraerJSON(textoRespuesta);
+    const json = extraerJSON(textoRespuesta);
 
-  const resultado: Record<string, SugerenciaCriterio> = {};
-  for (const criterio of criterios) {
-    resultado[criterio.id] = limpiarCriterio(criterio, json[criterio.id]);
+    const resultado: Record<string, SugerenciaCriterio> = {};
+    for (const criterio of criterios) {
+      resultado[criterio.id] = limpiarCriterio(criterio, json[criterio.id]);
+    }
+    return resultado;
+  } catch (e) {
+    throw new Error(`Error al evaluar "${etapaNombre}" con IA: ${mensajeDeError(e)}`);
   }
-  return resultado;
 }
 
 /**
@@ -172,11 +195,17 @@ export async function generarEvaluacionCompletaIA(postulacion: Postulacion): Pro
     );
   }
 
-  const [etapa1, etapa2, bono] = await Promise.all([
-    evaluarCriteriosEtapa(apiKey, postulacion, ETAPA_1.nombre, ETAPA_1.criterios),
-    evaluarCriteriosEtapa(apiKey, postulacion, ETAPA_2.nombre, ETAPA_2.criterios),
-    generarSugerenciaIA(postulacion),
-  ]);
+  try {
+    const [etapa1, etapa2, bono] = await Promise.all([
+      evaluarCriteriosEtapa(apiKey, postulacion, ETAPA_1.nombre, ETAPA_1.criterios),
+      evaluarCriteriosEtapa(apiKey, postulacion, ETAPA_2.nombre, ETAPA_2.criterios),
+      generarSugerenciaIA(postulacion),
+    ]);
 
-  return { etapa1, etapa2, bono };
+    return { etapa1, etapa2, bono };
+  } catch (e) {
+    // Se re-envuelve en un Error plano (solo texto) para asegurar que Next.js
+    // pueda reenviar el mensaje al navegador sin problemas de serialización.
+    throw new Error(mensajeDeError(e));
+  }
 }
