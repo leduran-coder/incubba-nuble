@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.117.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/papaparse": "^5.5.2",
     "bcryptjs": "^3.0.3",
