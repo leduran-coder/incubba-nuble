@@ -188,6 +188,20 @@ export async function guardarPesoEtapas(pesoEtapa2: number, pesoEtapa3: number):
   revalidatePath("/resultados");
 }
 
+/**
+ * Guarda la lista configurable de sectores/industrias estratégicas usada por
+ * el factor automático "Alineación con sectores estratégicos regionales".
+ * Se recibe una línea de texto por sector; se descartan líneas vacías.
+ */
+export async function guardarSectoresEstrategicos(sectores: string[]): Promise<void> {
+  await requerirAdmin();
+  const limpios = sectores.map((s) => s.trim()).filter((s) => s.length > 0);
+  await setConfig("sectores_estrategicos", limpios);
+  revalidatePath("/configuracion");
+  revalidatePath("/evaluacion");
+  revalidatePath("/resultados");
+}
+
 // --------------------------------- Cuenta propia -----------------------------
 
 export async function cambiarMiPassword(nuevaPassword: string): Promise<{ error?: string }> {
