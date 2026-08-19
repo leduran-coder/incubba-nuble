@@ -5,6 +5,7 @@ import { CsvImportTab } from "@/components/configuracion/CsvImportTab";
 import { EvaluadoresTab } from "@/components/configuracion/EvaluadoresTab";
 import { BonificacionTab } from "@/components/configuracion/BonificacionTab";
 import { PesosTab } from "@/components/configuracion/PesosTab";
+import { IATab } from "@/components/configuracion/IATab";
 import { CuentaTab } from "@/components/configuracion/CuentaTab";
 import type { Usuario } from "@/lib/types";
 import type { FactorBonificacion } from "@/lib/rubric";
@@ -14,6 +15,7 @@ const TABS = [
   "👥 Evaluadores",
   "🚀 Bonificación",
   "⚖️ Pesos entre etapas",
+  "🤖 Sugerencias con IA",
   "🔑 Mi cuenta",
 ];
 
@@ -22,11 +24,15 @@ export function ConfiguracionTabs({
   usuarioActual,
   bonificacion,
   pesoEtapas,
+  sectoresEstrategicos,
+  iaActiva,
 }: {
   usuarios: Usuario[];
   usuarioActual: { nombre: string; email: string };
   bonificacion: { activa: boolean; puntaje_maximo: number; factores: FactorBonificacion[] };
   pesoEtapas: { etapa_2: number; etapa_3: number };
+  sectoresEstrategicos: string[];
+  iaActiva: boolean;
 }) {
   const [tab, setTab] = useState(0);
 
@@ -53,10 +59,12 @@ export function ConfiguracionTabs({
           activaInicial={bonificacion.activa}
           puntajeMaximoInicial={bonificacion.puntaje_maximo}
           factoresIniciales={bonificacion.factores}
+          sectoresEstrategicosIniciales={sectoresEstrategicos}
         />
       ) : null}
       {tab === 3 ? <PesosTab pesoEtapa2Inicial={pesoEtapas.etapa_2} pesoEtapa3Inicial={pesoEtapas.etapa_3} /> : null}
-      {tab === 4 ? <CuentaTab nombre={usuarioActual.nombre} email={usuarioActual.email} /> : null}
+      {tab === 4 ? <IATab activaInicial={iaActiva} /> : null}
+      {tab === 5 ? <CuentaTab nombre={usuarioActual.nombre} email={usuarioActual.email} /> : null}
     </div>
   );
 }
