@@ -452,7 +452,23 @@ export interface FactorBonificacion {
   conversion?: string;
   descripcion?: string;
   niveles_orientativos?: NivelOrientativo[];
+  tipo?: "categorico" | "lista_estrategica";
 }
+
+/**
+ * Lista configurable (Configuración → Bonificación) de sectores o industrias
+ * estratégicas / de alto crecimiento para la región de Ñuble, usada por el
+ * factor automático "Alineación con sectores estratégicos regionales".
+ * Fuente: Ministerio de Economía, CORFO y Gobierno Regional de Ñuble
+ * (noviembre 2025). Un/a administrador/a puede editarla sin tocar código.
+ */
+export const SECTORES_ESTRATEGICOS_DEFAULT: string[] = [
+  "Agroindustria",
+  "Turismo",
+  "Economía circular",
+  "Logística",
+  "Industria creativa",
+];
 
 /**
  * Modelo de "potencial dinámico" (bonificación no exigida literalmente por las
@@ -495,6 +511,20 @@ export const BONIFICACION_DEFAULT = {
       peso: 0.1,
       fuente_formulario: "pregunta_28_ha_levantado_financiamiento",
       mapeo: { Sí: 10, No: 0 },
+    },
+    {
+      id: "alineacion_sectorial",
+      nombre: "Alineación con sectores estratégicos regionales",
+      peso: 0.15,
+      fuente_formulario: "sector_industria",
+      tipo: "lista_estrategica",
+      descripcion:
+        "Compara el sector o industria declarado por el postulante contra la lista " +
+        "configurable de sectores estratégicos o de alto crecimiento para la región de Ñuble " +
+        "(ver Configuración → Bonificación). Usa coincidencia parcial de texto: si el sector " +
+        "declarado contiene o coincide con alguno de la lista, obtiene el puntaje máximo; si no " +
+        "coincide con ninguno, obtiene 0 puntos. Si el postulante no declaró sector, el factor " +
+        "se omite del cálculo (no cuenta ni como puntaje ni como peso).",
     },
     {
       id: "madurez_tecnologica",
