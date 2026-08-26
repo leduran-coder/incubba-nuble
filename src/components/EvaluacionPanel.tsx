@@ -58,6 +58,22 @@ export function EvaluacionPanel({
   const router = useRouter();
   const [tab, setTab] = useState(0);
 
+  // Cada vez que se cambia de postulación (el `select` de más abajo navega a
+  // /evaluacion?id=<otro id>), esta misma instancia de EvaluacionPanel se
+  // reutiliza con props nuevas — React no la vuelve a montar solo porque
+  // cambió el id. Sin este ajuste, la pestaña activa quedaba en la que
+  // estuviera antes de cambiar de proyecto (ej. "Etapa 2") en vez de volver
+  // siempre a "Etapa 1 · Admisibilidad", que es el punto de partida lógico
+  // para evaluar un proyecto nuevo. Se ajusta durante el render (no en un
+  // useEffect) siguiendo el patrón que React recomienda para "reiniciar
+  // estado cuando cambia una prop" — ver "Adjusting state when a prop
+  // changes" en la documentación de React.
+  const [postulacionIdAnterior, setPostulacionIdAnterior] = useState(postulacionId);
+  if (postulacionId !== postulacionIdAnterior) {
+    setPostulacionIdAnterior(postulacionId);
+    setTab(0);
+  }
+
   function cambiarPostulacion(id: number) {
     router.push(`/evaluacion?id=${id}`);
   }
@@ -100,12 +116,19 @@ export function EvaluacionPanel({
 
       {tab < etapasData.length ? (
         <EtapaForm
-          key={etapasData[tab].etapa.id}
+          // La key incluye el id de la postulación además del id de la
+          // etapa: así, además de reiniciarse al cambiar de pestaña, el
+          // formulario también se reinicia (se vuelve a montar desde cero,
+          // con los datos frescos que ya llegaron del servidor) al cambiar
+          // de proyecto — evita que quede "pegada" en pantalla una selección
+          // sin guardar del proyecto anterior.
+          key={`${postulacionId}-${etapasData[tab].etapa.id}`}
           postulacionId={postulacionId}
           data={etapasData[tab]}
         />
       ) : tab === bonoTabIndex ? (
         <BonoTab
+          key={postulacionId}
           postulacionId={postulacionId}
           bonoManual={bonoManual}
           bonoCalculado={bonoCalculado}
@@ -116,7 +139,7 @@ export function EvaluacionPanel({
           iaActiva={iaActiva}
         />
       ) : tab === iaTabIndex ? (
-        <EvaluacionAuxiliarIA postulacionId={postulacionId} iaActiva={iaActiva} />
+        <EvaluacionAuxiliarIA key={postulacionId} postulacionId={postulacionId} iaActiva={iaActiva} />
       ) : null}
 
       {tab === 0 ? (
