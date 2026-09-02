@@ -34,6 +34,7 @@ interface Props {
   };
   puntajeMaximoBono: number;
   iaActiva: boolean;
+  sinPotencialDinamico: boolean;
 }
 
 const COLOR_ADMISIBILIDAD: Record<string, string> = {
@@ -54,6 +55,7 @@ export function EvaluacionPanel({
   resumenAutomatico,
   puntajeMaximoBono,
   iaActiva,
+  sinPotencialDinamico,
 }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState(0);
@@ -137,6 +139,7 @@ export function EvaluacionPanel({
           resumenAutomatico={resumenAutomatico}
           puntajeMaximoBono={puntajeMaximoBono}
           iaActiva={iaActiva}
+          sinPotencialDinamico={sinPotencialDinamico}
         />
       ) : tab === iaTabIndex ? (
         <EvaluacionAuxiliarIA key={postulacionId} postulacionId={postulacionId} iaActiva={iaActiva} />
@@ -304,6 +307,7 @@ function BonoTab({
   resumenAutomatico,
   puntajeMaximoBono,
   iaActiva,
+  sinPotencialDinamico,
 }: {
   postulacionId: number;
   bonoManual: BonificacionManualValores | null;
@@ -313,6 +317,7 @@ function BonoTab({
   resumenAutomatico: Props["resumenAutomatico"];
   puntajeMaximoBono: number;
   iaActiva: boolean;
+  sinPotencialDinamico: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -373,6 +378,17 @@ function BonoTab({
 
   return (
     <div className="card p-5">
+      {sinPotencialDinamico ? (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 mb-4">
+          <p className="text-sm text-amber-800">
+            <strong>El administrador/a marcó este proyecto como &quot;sin potencial dinámico&quot;.</strong>{" "}
+            Por eso, en el resultado final la bonificación de este proyecto se suma como 0, sin importar
+            los factores automáticos ni las calificaciones del panel. Esto no cambia nada para ti: puedes
+            seguir calificando y guardando los factores cualitativos con total normalidad, tal como
+            siempre — tus respuestas se guardan igual.
+          </p>
+        </div>
+      ) : null}
       <p className="text-sm text-gris-muted mb-4">
         Bonificación adicional (no exigida literalmente por las bases) que premia el potencial
         dinámico real del proyecto: capacidad de crecer a tasas superiores al 20% anual, según la
@@ -400,7 +416,9 @@ function BonoTab({
             {resumenAutomatico.sector_industria ?? "—"}
           </div>
           <p className="text-xs text-gris-muted mt-1">
-            {bonoCalculado.detalle.alineacion_sectorial === undefined
+            {sinPotencialDinamico
+              ? "No aplica: proyecto marcado sin potencial dinámico"
+              : bonoCalculado.detalle.alineacion_sectorial === undefined
               ? "Sin sector declarado (factor omitido)"
               : bonoCalculado.detalle.alineacion_sectorial >= 10
               ? "✅ Coincide con un sector estratégico"
@@ -494,10 +512,18 @@ function BonoTab({
 
       <div className="metric-card">
         <div className="metric-label">Bonificación total estimada (máx. {puntajeMaximoBono} pts)</div>
-        <div className="metric-value">{bonoEnVivo}</div>
-        <p className="text-xs text-gris-muted mt-1">
-          Se actualiza al mover los sliders; refleja lo que quedaría si guardas ahora.
-        </p>
+        <div className="metric-value">{sinPotencialDinamico ? 0 : bonoEnVivo}</div>
+        {sinPotencialDinamico ? (
+          <p className="text-xs text-amber-700 mt-1">
+            Este proyecto está marcado por el administrador/a como &quot;sin potencial dinámico&quot;, así
+            que esta bonificación se suma como 0 en el resultado final, sin importar el valor de los
+            sliders.
+          </p>
+        ) : (
+          <p className="text-xs text-gris-muted mt-1">
+            Se actualiza al mover los sliders; refleja lo que quedaría si guardas ahora.
+          </p>
+        )}
       </div>
     </div>
   );
