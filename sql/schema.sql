@@ -30,6 +30,7 @@ create table if not exists postulaciones (
   -- puede rechazar una fila completa si una respuesta resulta más larga de
   -- lo esperado (por ejemplo, una pregunta de selección múltiple que junta
   -- varias opciones separadas por coma en un solo texto).
+
   fuente_timestamp text,
   correo text,
   nombres text,
@@ -62,6 +63,7 @@ create table if not exists postulaciones (
   alcance_innovacion text,
   sector_area_impacto text,
   resultados_3_anios text,
+
   impacto_esperado text,
   num_personas_equipo integer,
   descripcion_equipo text,
@@ -69,8 +71,23 @@ create table if not exists postulaciones (
   video_link_alternativo text,
   video_password text,
   raw_json text,
+  -- Marca que SOLO el administrador puede activar/desactivar (desde la
+  -- página "Seguimiento" → "Reportes consolidados por proyecto"): cuando
+  -- está en true, la bonificación por potencial dinámico de este proyecto
+  -- se fuerza a 0 en todos los cálculos (Resultados, Estadísticas,
+  -- reportes), sin importar los factores automáticos declarados en el
+  -- formulario ni lo que hayan calificado los evaluadores. Es independiente
+  -- de lo que hagan los evaluadores: ellos siguen viendo y usando la
+  -- pestaña "Bonificación" con total normalidad, y sus respuestas guardadas
+  -- en bonificaciones_manuales nunca se tocan ni se borran por esta marca.
+  sin_potencial_dinamico boolean not null default false,
   creado_en timestamptz default now()
 );
+
+-- Si esta tabla ya existía de una convocatoria anterior (creada antes de que
+-- esta columna se agregara acá arriba), esto la agrega sin tocar ninguna
+-- fila existente -- todas quedan con el valor por defecto "false".
+alter table postulaciones add column if not exists sin_potencial_dinamico boolean not null default false;
 
 create table if not exists evaluaciones (
   id serial primary key,
@@ -79,6 +96,7 @@ create table if not exists evaluaciones (
   etapa_id varchar(20) not null,
   criterio_id varchar(60) not null,
   nivel_seleccionado varchar(60),
+
   puntos double precision,
   comentario text,
   creado_en timestamptz default now(),
