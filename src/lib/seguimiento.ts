@@ -143,6 +143,7 @@ export interface AvanceProyecto {
   postulante: string;
   evaluadoresQueParticiparon: number;
   evaluacionesCompletas: number;
+  sinPotencialDinamico: boolean;
 }
 
 /**
@@ -200,6 +201,7 @@ export async function avancePorProyecto(): Promise<AvanceProyecto[]> {
       postulante: nombreCompleto(p),
       evaluadoresQueParticiparon: evaluadoresIds.size,
       evaluacionesCompletas: completas,
+      sinPotencialDinamico: p.sin_potencial_dinamico,
     };
   });
 }
