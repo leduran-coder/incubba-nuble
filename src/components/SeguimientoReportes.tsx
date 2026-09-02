@@ -17,10 +17,20 @@ export function SeguimientoReportes({
   const [isPending, startTransition] = useTransition();
   const [pendienteId, setPendienteId] = useState<number | null>(null);
 
+  // Cambio optimista: en vez de esperar a que el servidor confirme y la
+  // página entera se refresque (router.refresh() tarda un instante en traer
+  // los datos frescos), el botón cambia de color y de texto AL TOQUE apenas
+  // se hace clic, guardando ese valor acá localmente. La acción al servidor
+  // se sigue enviando igual en segundo plano para que quede guardado de
+  // verdad; cuando router.refresh() termine, los datos del servidor van a
+  // coincidir con lo que ya se veía en pantalla, así que no hay parpadeo.
+  const [cambiosOptimistas, setCambiosOptimistas] = useState<Record<number, boolean>>({});
+
   const filtradas = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     if (!q) return filas;
     return filas.filter(
+
       (f) =>
         f.proyecto.toLowerCase().includes(q) ||
         f.postulante.toLowerCase().includes(q) ||
@@ -29,10 +39,11 @@ export function SeguimientoReportes({
   }, [filas, busqueda]);
 
   function toggleSinPotencialDinamico(id: number, valorActual: boolean) {
+    const nuevoValor = !valorActual;
+    setCambiosOptimistas((c) => ({ ...c, [id]: nuevoValor }));
     setPendienteId(id);
-
     startTransition(async () => {
-      await guardarSinPotencialDinamico(id, !valorActual);
+      await guardarSinPotencialDinamico(id, nuevoValor);
       router.refresh();
       setPendienteId(null);
     });
@@ -52,6 +63,7 @@ export function SeguimientoReportes({
         className="w-full rounded-lg border border-gris-borde px-3 py-2 text-sm mb-3"
       />
       <div className="card overflow-x-auto">
+
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gris-fondo text-left text-gris-muted uppercase text-xs">
@@ -63,7 +75,6 @@ export function SeguimientoReportes({
                 "Evaluaciones completas",
                 "Sin potencial dinámico",
                 "Reporte",
-
               ].map((h) => (
                 <th key={h} className="px-3 py-2.5 font-bold whitespace-nowrap">
                   {h}
@@ -72,40 +83,39 @@ export function SeguimientoReportes({
             </tr>
           </thead>
           <tbody>
-            {filtradas.map((f) => (
-              <tr key={f.id} className="border-t border-gris-borde">
-                <td className="px-3 py-2">{f.id}</td>
-                <td className="px-3 py-2 font-medium">{f.proyecto}</td>
-                <td className="px-3 py-2">{f.postulante}</td>
-                <td className="px-3 py-2">
-                  {f.evaluadoresQueParticiparon} / {totalEvaluadores || "—"}
-                </td>
-                <td className="px-3 py-2">{f.evaluacionesCompletas}</td>
-                <td className="px-3 py-2">
-                  <button
-                    type="button"
-                    onClick={() => toggleSinPotencialDinamico(f.id, f.sinPotencialDinamico)}
-                    disabled={isPending && pendienteId === f.id}
-                    title="Al marcarlo, la bonificación de este proyecto se fuerza a 0 en Resultados, Estadísticas y en el reporte Word, sin afectar en nada lo que los evaluadores hayan calificado o sigan calificando."
-                    className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                      f.sinPotencialDinamico ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
-                    }`}
-                  >
-                    {isPending && pendienteId === f.id
-                      ? "Guardando..."
-                      : f.sinPotencialDinamico
-                      ? "Sin Potencial Dinámico"
-                      : "Con Potencial Dinámico"}
+            {filtradas.map((f) => {
+              const sinPotencial = cambiosOptimistas[f.id] ?? f.sinPotencialDinamico;
+              return (
+                <tr key={f.id} className="border-t border-gris-borde">
+                  <td className="px-3 py-2">{f.id}</td>
+                  <td className="px-3 py-2 font-medium">{f.proyecto}</td>
+                  <td className="px-3 py-2">{f.postulante}</td>
+                  <td className="px-3 py-2">
+                    {f.evaluadoresQueParticiparon} / {totalEvaluadores || "—"}
+                  </td>
+                  <td className="px-3 py-2">{f.evaluacionesCompletas}</td>
+                  <td className="px-3 py-2">
+                    <button
 
-                  </button>
-                </td>
-                <td className="px-3 py-2">
-                  <a href={`/api/reportes/${f.id}`} className="btn-primary inline-block px-3 py-1.5 text-xs">
-                    Descargar Word
-                  </a>
-                </td>
-              </tr>
-            ))}
+                      type="button"
+                      onClick={() => toggleSinPotencialDinamico(f.id, sinPotencial)}
+                      disabled={isPending && pendienteId === f.id}
+                      title="Al marcarlo, la bonificación de este proyecto se fuerza a 0 en Resultados, Estadísticas y en el reporte Word, sin afectar en nada lo que los evaluadores hayan calificado o sigan calificando."
+                      className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                        sinPotencial ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
+                      }`}
+                    >
+                      {sinPotencial ? "Sin Potencial Dinámico" : "Con Potencial Dinámico"}
+                    </button>
+                  </td>
+                  <td className="px-3 py-2">
+                    <a href={`/api/reportes/${f.id}`} className="btn-primary inline-block px-3 py-1.5 text-xs">
+                      Descargar Word
+                    </a>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -119,6 +129,7 @@ export function SeguimientoReportes({
         pestaña Bonificación — sus respuestas guardadas no se tocan ni se borran, y pueden seguir
         calificando con total normalidad.
       </p>
+
     </div>
   );
 }
