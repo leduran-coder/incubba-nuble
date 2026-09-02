@@ -30,6 +30,7 @@ interface Props {
     tipo_potencial_innovador: string | null;
     alcance_innovacion: string | null;
     ha_levantado_financiamiento: string | null;
+
     sector_industria: string | null;
   };
   puntajeMaximoBono: number;
@@ -62,6 +63,7 @@ export function EvaluacionPanel({
 
   // Cada vez que se cambia de postulación (el `select` de más abajo navega a
   // /evaluacion?id=<otro id>), esta misma instancia de EvaluacionPanel se
+
   // reutiliza con props nuevas — React no la vuelve a montar solo porque
   // cambió el id. Sin este ajuste, la pestaña activa quedaba en la que
   // estuviera antes de cambiar de proyecto (ej. "Etapa 2") en vez de volver
@@ -94,6 +96,7 @@ export function EvaluacionPanel({
         value={postulacionId}
         onChange={(e) => cambiarPostulacion(Number(e.target.value))}
         className="w-full rounded-lg border border-gris-borde px-3 py-2.5 text-sm mb-5"
+
       >
         {postulaciones.map((p) => (
           <option key={p.id} value={p.id}>
@@ -126,6 +129,7 @@ export function EvaluacionPanel({
           // sin guardar del proyecto anterior.
           key={`${postulacionId}-${etapasData[tab].etapa.id}`}
           postulacionId={postulacionId}
+
           data={etapasData[tab]}
         />
       ) : tab === bonoTabIndex ? (
@@ -158,6 +162,7 @@ export function EvaluacionPanel({
 }
 
 function EtapaForm({ postulacionId, data }: { postulacionId: number; data: EtapaData }) {
+
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [respuestas, setRespuestas] = useState<Record<string, string | null>>(data.respuestas);
@@ -190,6 +195,7 @@ function EtapaForm({ postulacionId, data }: { postulacionId: number; data: Etapa
               </label>
               <div className="flex flex-wrap gap-2">
                 {criterio.niveles.map((n) => (
+
                   <button
                     key={n.nivel}
                     type="button"
@@ -222,6 +228,7 @@ function EtapaForm({ postulacionId, data }: { postulacionId: number; data: Etapa
         </div>
 
         {faltantes ? (
+
           <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
             Falta calificar: {faltantes.join(", ")}. Guarda solo los criterios ya calificados; el
             promedio de la etapa se calculará cuando estén todos completos.
@@ -254,6 +261,7 @@ interface FactorSlider {
   titulo: string;
   pregunta: string;
   ancla1: string;
+
   ancla5: string;
 }
 
@@ -286,6 +294,7 @@ const FACTORES_SLIDER: FactorSlider[] = [
     pregunta: "¿Qué tan creíble (no solo ambiciosa) es la proyección de crecimiento del equipo?",
     ancla1: "Poco creíble o poco ambiciosa",
     ancla5: "Muy creíble y muy ambiciosa, con capacidad real de ejecutarla",
+
   },
 ];
 
@@ -318,6 +327,7 @@ function BonoTab({
   puntajeMaximoBono: number;
   iaActiva: boolean;
   sinPotencialDinamico: boolean;
+
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -350,6 +360,7 @@ function BonoTab({
     if (!sugerencia) return;
     const valor = sugerencia[LLAVE_SUGERENCIA_POR_SLIDER[sliderId]].valor_1_a_5;
     setValores((v) => ({ ...v, [sliderId]: valor }));
+
   }
 
   // Se recalcula al vuelo cada vez que se mueve un slider, usando el mismo
@@ -382,6 +393,7 @@ function BonoTab({
         <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 mb-4">
           <p className="text-sm text-amber-800">
             <strong>El administrador/a marcó este proyecto como &quot;sin potencial dinámico&quot;.</strong>{" "}
+
             Por eso, en el resultado final la bonificación de este proyecto se suma como 0, sin importar
             los factores automáticos ni las calificaciones del panel. Esto no cambia nada para ti: puedes
             seguir calificando y guardando los factores cualitativos con total normalidad, tal como
@@ -414,6 +426,7 @@ function BonoTab({
           <div className="metric-label">Alineación sectorial</div>
           <div className="metric-value text-lg">
             {resumenAutomatico.sector_industria ?? "—"}
+
           </div>
           <p className="text-xs text-gris-muted mt-1">
             {sinPotencialDinamico
@@ -446,6 +459,7 @@ function BonoTab({
             disabled={isPendingIA}
             className="btn-primary text-sm"
           >
+
             {isPendingIA ? "Generando sugerencia..." : "Generar sugerencia con IA"}
           </button>
           {errorIA ? (
@@ -478,6 +492,7 @@ function BonoTab({
               </div>
               {sugerenciaFactor ? (
                 <div className="mt-2 rounded-lg border border-gris-borde bg-gris-fondo p-2.5 text-xs">
+
                   <p className="text-gris-texto">
                     <strong>Sugerencia IA: {sugerenciaFactor.valor_1_a_5}/5.</strong>{" "}
                     {sugerenciaFactor.justificacion}
@@ -509,6 +524,7 @@ function BonoTab({
       <button onClick={guardar} disabled={isPending} className="btn-primary mb-5">
         {isPending ? "Guardando..." : "Guardar bonificación cualitativa"}
       </button>
+
 
       <div className="metric-card">
         <div className="metric-label">Bonificación total estimada (máx. {puntajeMaximoBono} pts)</div>
