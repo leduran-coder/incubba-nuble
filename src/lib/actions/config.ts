@@ -189,6 +189,27 @@ export async function guardarPesoEtapas(pesoEtapa2: number, pesoEtapa3: number):
 }
 
 /**
+ * Marca (o desmarca) un proyecto puntual como "sin potencial dinámico".
+ * Es una decisión exclusiva del administrador/a (por eso exige requerirAdmin,
+ * a diferencia de guardarBonificacionManual que puede usar cualquier
+ * evaluador/a) y actúa como un multiplicador ×0 sobre la bonificación
+ * completa de ese proyecto: no borra ni modifica ninguna fila de
+ * bonificaciones_manuales, y los evaluadores siguen viendo y usando la
+ * pestaña "Bonificación" con total normalidad. El efecto se aplica en un
+ * único lugar (calcularBonificacionDesdeDatos, en scoring.ts) para que se
+ * refleje automáticamente en Resultados, Estadísticas y en los reportes
+ * Word de Seguimiento.
+ */
+export async function guardarSinPotencialDinamico(postulacionId: number, valor: boolean): Promise<void> {
+  await requerirAdmin();
+  await sql`update postulaciones set sin_potencial_dinamico = ${valor} where id = ${postulacionId}`;
+  revalidatePath("/seguimiento");
+  revalidatePath("/evaluacion");
+  revalidatePath("/resultados");
+  revalidatePath("/estadisticas");
+}
+
+/**
  * Guarda la lista configurable de sectores/industrias estratégicas usada por
  * el factor automático "Alineación con sectores estratégicos regionales".
  * Se recibe una línea de texto por sector; se descartan líneas vacías.
