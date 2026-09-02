@@ -31,6 +31,7 @@ export default async function EvaluacionPage({
     );
   }
 
+
   const { id } = await searchParams;
   const postulacionId = id ? Number(id) : postulaciones[0].id;
   const postulacion = postulaciones.find((p) => p.id === postulacionId) ?? postulaciones[0];
@@ -62,6 +63,7 @@ export default async function EvaluacionPage({
         postulaciones={postulaciones.map((p) => ({
           id: p.id,
           label: `#${p.id} · ${nombreProyecto(p)} — ${nombreCompleto(p)}`,
+
         }))}
         postulacionId={postulacion.id}
         etapasData={etapasData}
@@ -78,6 +80,7 @@ export default async function EvaluacionPage({
         }}
         puntajeMaximoBono={config.puntaje_maximo ?? 10}
         iaActiva={iaActiva}
+        sinPotencialDinamico={postulacion.sin_potencial_dinamico}
       />
     </div>
   );
