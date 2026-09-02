@@ -30,6 +30,7 @@ export interface Postulacion {
   rut_empresa: string | null;
   tipo_empresa: string | null;
   sector_industria: string | null;
+
   tamano_empresa: string | null;
   descripcion: string | null;
   propuesta_valor: string | null;
@@ -49,6 +50,7 @@ export interface Postulacion {
   video_link_alternativo: string | null;
   video_password: string | null;
   raw_json: string | null;
+  sin_potencial_dinamico: boolean;
   creado_en: string;
 }
 
@@ -61,6 +63,7 @@ export function nombreProyecto(p: Postulacion): string {
 }
 
 export interface Evaluacion {
+
   id: number;
   postulacion_id: number;
   evaluador_id: number;
@@ -93,6 +96,7 @@ export interface BonificacionManualValores {
   traccion_1_a_5: number | null;
   comentario: string | null;
 }
+
 
 export interface ConfiguracionClave {
   clave: string;
