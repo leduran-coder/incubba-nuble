@@ -30,6 +30,7 @@ export function SeguimientoReportes({
 
   function toggleSinPotencialDinamico(id: number, valorActual: boolean) {
     setPendienteId(id);
+
     startTransition(async () => {
       await guardarSinPotencialDinamico(id, !valorActual);
       router.refresh();
@@ -62,6 +63,7 @@ export function SeguimientoReportes({
                 "Evaluaciones completas",
                 "Sin potencial dinámico",
                 "Reporte",
+
               ].map((h) => (
                 <th key={h} className="px-3 py-2.5 font-bold whitespace-nowrap">
                   {h}
@@ -86,14 +88,15 @@ export function SeguimientoReportes({
                     disabled={isPending && pendienteId === f.id}
                     title="Al marcarlo, la bonificación de este proyecto se fuerza a 0 en Resultados, Estadísticas y en el reporte Word, sin afectar en nada lo que los evaluadores hayan calificado o sigan calificando."
                     className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                      f.sinPotencialDinamico ? "bg-amber-100 text-amber-800" : "bg-gray-200 text-gray-600"
+                      f.sinPotencialDinamico ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
                     }`}
                   >
                     {isPending && pendienteId === f.id
                       ? "Guardando..."
                       : f.sinPotencialDinamico
-                      ? "Sí, sin potencial dinámico — clic para revertir"
-                      : "Tiene potencial dinámico — clic para marcar sin potencial"}
+                      ? "Sin Potencial Dinámico"
+                      : "Con Potencial Dinámico"}
+
                   </button>
                 </td>
                 <td className="px-3 py-2">
