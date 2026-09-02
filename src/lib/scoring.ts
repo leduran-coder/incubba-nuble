@@ -119,6 +119,15 @@ function calcularBonificacionDesdeDatos(
   filasManuales: FilaBonificacionManual[],
   sectoresEstrategicos: string[]
 ): { bono: number; detalle: Record<string, number> } {
+  // El administrador puede marcar un proyecto puntual como "sin potencial
+  // dinámico" (Seguimiento → Reportes consolidados por proyecto). Es un
+  // multiplicador por cero a nivel de todo el proyecto: anula la
+  // bonificación completa (factores automáticos Y cualitativos) sin
+  // importar lo que hayan calificado los evaluadores o lo que el postulante
+  // haya declarado en el formulario. No borra ni modifica ningún dato ya
+  // guardado en bonificaciones_manuales -- si se desmarca, vuelve a
+  // calcularse normalmente con todo lo que ya está guardado.
+  if (postulacion.sin_potencial_dinamico) return { bono: 0, detalle: {} };
   if (config.activa === false) return { bono: 0, detalle: {} };
 
   const detalle: Record<string, number> = {};
