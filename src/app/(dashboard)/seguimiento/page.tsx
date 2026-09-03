@@ -32,8 +32,8 @@ export default async function SeguimientoPage() {
         <strong>todos los criterios de esa etapa</strong> para ese proyecto — es la misma regla que ya
         usa la plataforma para promediar los puntajes en Resultados. &quot;Proyectos evaluados por
         completo&quot; exige Etapa 1 + Etapa 2 + Etapa 3 + Bonificación, las 4 a la vez. Haz clic en
-        &quot;Ver detalle&quot; en la fila de cada evaluador/a para ver exactamente cuáles proyectos ya
-        evaluó por completo y cuáles todavía tiene pendientes.
+        &quot;Ver detalle&quot; en la fila de cada evaluador/a para ver, separado por Etapa 1, Etapa 2,
+        Etapa 3 y Bonificación, cuáles proyectos le faltan todavía en cada una.
       </p>
 
       <h3 className="text-lg font-bold mb-3">Reportes consolidados por proyecto</h3>
