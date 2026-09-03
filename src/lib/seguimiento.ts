@@ -43,12 +43,18 @@ export interface AvanceEvaluador {
   bonoCompletas: number;
   totalmenteEvaluadas: number;
   ultimaActividad: string | null;
-  // Detalle proyecto por proyecto: en cuál lista cae un proyecto usa el
-  // mismo criterio de "completo" que totalmenteEvaluadas (Etapa 1 + Etapa 2
-  // + Etapa 3 + Bonificación, las 4 a la vez guardadas) -- así los números
-  // de arriba y las listas de abajo siempre cuentan la misma historia.
-  proyectosEvaluados: ResumenProyectoEvaluador[];
-  proyectosPendientes: ResumenProyectoEvaluador[];
+  // Detalle proyecto por proyecto, separado por cada componente (no un
+  // único "completo/pendiente" general): un proyecto puede aparecer, por
+  // ejemplo, en pendientesEtapa3 pero no en pendientesEtapa1 si ya terminó
+  // la Etapa 1 pero todavía no hace la entrevista. Cada lista usa el mismo
+  // criterio de "completo" que ya exige scoring.ts (todos los criterios de
+  // esa etapa guardados; para bono, que exista la fila en
+  // bonificaciones_manuales), así que siempre coincide con los conteos de
+  // arriba (ej. pendientesEtapa1.length === totalPostulaciones - etapa1Completas).
+  pendientesEtapa1: ResumenProyectoEvaluador[];
+  pendientesEtapa2: ResumenProyectoEvaluador[];
+  pendientesEtapa3: ResumenProyectoEvaluador[];
+  pendientesBono: ResumenProyectoEvaluador[];
 }
 
 interface FilaBonoFecha {
@@ -120,8 +126,10 @@ export async function avancePorEvaluador(): Promise<AvanceEvaluador[]> {
       let etapa3 = 0;
       let bono = 0;
       let completas = 0;
-      const proyectosEvaluados: ResumenProyectoEvaluador[] = [];
-      const proyectosPendientes: ResumenProyectoEvaluador[] = [];
+      const pendientesEtapa1: ResumenProyectoEvaluador[] = [];
+      const pendientesEtapa2: ResumenProyectoEvaluador[] = [];
+      const pendientesEtapa3: ResumenProyectoEvaluador[] = [];
+      const pendientesBono: ResumenProyectoEvaluador[] = [];
 
       for (const p of postulaciones) {
         const porEtapa = porPostulacion?.get(p.id);
@@ -134,18 +142,17 @@ export async function avancePorEvaluador(): Promise<AvanceEvaluador[]> {
         if (e2ok) etapa2++;
         if (e3ok) etapa3++;
         if (bonoOk) bono++;
+        if (e1ok && e2ok && e3ok && bonoOk) completas++;
 
         const resumen: ResumenProyectoEvaluador = {
           id: p.id,
           proyecto: nombreProyecto(p),
           postulante: nombreCompleto(p),
         };
-        if (e1ok && e2ok && e3ok && bonoOk) {
-          completas++;
-          proyectosEvaluados.push(resumen);
-        } else {
-          proyectosPendientes.push(resumen);
-        }
+        if (!e1ok) pendientesEtapa1.push(resumen);
+        if (!e2ok) pendientesEtapa2.push(resumen);
+        if (!e3ok) pendientesEtapa3.push(resumen);
+        if (!bonoOk) pendientesBono.push(resumen);
       }
 
       return {
@@ -160,8 +167,10 @@ export async function avancePorEvaluador(): Promise<AvanceEvaluador[]> {
         bonoCompletas: bono,
         totalmenteEvaluadas: completas,
         ultimaActividad: ultimaPorEvaluador.get(u.id) ?? null,
-        proyectosEvaluados,
-        proyectosPendientes,
+        pendientesEtapa1,
+        pendientesEtapa2,
+        pendientesEtapa3,
+        pendientesBono,
       };
     })
     .sort((a, b) => b.totalmenteEvaluadas - a.totalmenteEvaluadas || a.nombre.localeCompare(b.nombre));
