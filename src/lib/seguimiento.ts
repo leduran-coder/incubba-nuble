@@ -22,6 +22,15 @@ import { listarUsuarios } from "@/lib/auth-users";
 import { listarPostulaciones } from "@/lib/postulaciones";
 import { nombreCompleto, nombreProyecto, type Evaluacion } from "@/lib/types";
 
+// Ficha mínima de un proyecto para las listas de "evaluados" / "pendientes"
+// de cada evaluador/a -- no repite todos los campos de Postulacion, solo lo
+// que hace falta para identificarlo en pantalla.
+export interface ResumenProyectoEvaluador {
+  id: number;
+  proyecto: string;
+  postulante: string;
+}
+
 export interface AvanceEvaluador {
   id: number;
   nombre: string;
@@ -34,6 +43,12 @@ export interface AvanceEvaluador {
   bonoCompletas: number;
   totalmenteEvaluadas: number;
   ultimaActividad: string | null;
+  // Detalle proyecto por proyecto: en cuál lista cae un proyecto usa el
+  // mismo criterio de "completo" que totalmenteEvaluadas (Etapa 1 + Etapa 2
+  // + Etapa 3 + Bonificación, las 4 a la vez guardadas) -- así los números
+  // de arriba y las listas de abajo siempre cuentan la misma historia.
+  proyectosEvaluados: ResumenProyectoEvaluador[];
+  proyectosPendientes: ResumenProyectoEvaluador[];
 }
 
 interface FilaBonoFecha {
@@ -105,6 +120,8 @@ export async function avancePorEvaluador(): Promise<AvanceEvaluador[]> {
       let etapa3 = 0;
       let bono = 0;
       let completas = 0;
+      const proyectosEvaluados: ResumenProyectoEvaluador[] = [];
+      const proyectosPendientes: ResumenProyectoEvaluador[] = [];
 
       for (const p of postulaciones) {
         const porEtapa = porPostulacion?.get(p.id);
@@ -117,7 +134,18 @@ export async function avancePorEvaluador(): Promise<AvanceEvaluador[]> {
         if (e2ok) etapa2++;
         if (e3ok) etapa3++;
         if (bonoOk) bono++;
-        if (e1ok && e2ok && e3ok && bonoOk) completas++;
+
+        const resumen: ResumenProyectoEvaluador = {
+          id: p.id,
+          proyecto: nombreProyecto(p),
+          postulante: nombreCompleto(p),
+        };
+        if (e1ok && e2ok && e3ok && bonoOk) {
+          completas++;
+          proyectosEvaluados.push(resumen);
+        } else {
+          proyectosPendientes.push(resumen);
+        }
       }
 
       return {
@@ -132,6 +160,8 @@ export async function avancePorEvaluador(): Promise<AvanceEvaluador[]> {
         bonoCompletas: bono,
         totalmenteEvaluadas: completas,
         ultimaActividad: ultimaPorEvaluador.get(u.id) ?? null,
+        proyectosEvaluados,
+        proyectosPendientes,
       };
     })
     .sort((a, b) => b.totalmenteEvaluadas - a.totalmenteEvaluadas || a.nombre.localeCompare(b.nombre));
