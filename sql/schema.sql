@@ -19,8 +19,25 @@ create table if not exists usuarios (
   password_hash varchar(200) not null,
   rol varchar(20) not null default 'evaluador',
   activo boolean default true,
+  -- Independiente de "activo" (que solo controla si puede iniciar sesión):
+  -- esta marca decide si las evaluaciones y bonificaciones YA registradas
+  -- por este evaluador/a cuentan en los promedios de Resultados,
+  -- Estadísticas y los reportes Word. Pensada para cuando hay que cerrar el
+  -- proceso y algunos evaluadores no alcanzaron a terminar -- el
+  -- administrador/a puede excluirlos del cálculo (para ver cómo queda el
+  -- ranking sin ellos) y volver a incluirlos en cualquier momento, sin que
+  -- eso afecte si pueden seguir entrando al sistema ni borre ninguna
+  -- respuesta ya guardada.
+  incluido_en_resultados boolean not null default true,
   creado_en timestamptz default now()
+
 );
+
+-- Si esta tabla ya existía de una convocatoria anterior (creada antes de que
+-- esta columna se agregara acá arriba), esto la agrega sin tocar ninguna
+-- fila existente -- todas quedan con el valor por defecto "true" (incluidas
+-- en el cálculo, como siempre estuvieron hasta ahora).
+alter table usuarios add column if not exists incluido_en_resultados boolean not null default true;
 
 create table if not exists postulaciones (
   id serial primary key,
@@ -30,7 +47,6 @@ create table if not exists postulaciones (
   -- puede rechazar una fila completa si una respuesta resulta más larga de
   -- lo esperado (por ejemplo, una pregunta de selección múltiple que junta
   -- varias opciones separadas por coma en un solo texto).
-
   fuente_timestamp text,
   correo text,
   nombres text,
@@ -47,6 +63,7 @@ create table if not exists postulaciones (
   tipo_emprendimiento text,
   estado_detalle text,
   nombre_emprendimiento text,
+
   nombre_empresa text,
   rut_empresa text,
   tipo_empresa text,
@@ -63,7 +80,6 @@ create table if not exists postulaciones (
   alcance_innovacion text,
   sector_area_impacto text,
   resultados_3_anios text,
-
   impacto_esperado text,
   num_personas_equipo integer,
   descripcion_equipo text,
@@ -80,6 +96,7 @@ create table if not exists postulaciones (
   -- de lo que hagan los evaluadores: ellos siguen viendo y usando la
   -- pestaña "Bonificación" con total normalidad, y sus respuestas guardadas
   -- en bonificaciones_manuales nunca se tocan ni se borran por esta marca.
+
   sin_potencial_dinamico boolean not null default false,
   creado_en timestamptz default now()
 );
@@ -96,7 +113,6 @@ create table if not exists evaluaciones (
   etapa_id varchar(20) not null,
   criterio_id varchar(60) not null,
   nivel_seleccionado varchar(60),
-
   puntos double precision,
   comentario text,
   creado_en timestamptz default now(),
@@ -113,6 +129,7 @@ create table if not exists bonificaciones_manuales (
   escalabilidad_1_a_5 integer,
   traccion_1_a_5 integer,
   comentario text,
+
   creado_en timestamptz default now(),
   actualizado_en timestamptz default now(),
   constraint uq_bono_manual_unico unique (postulacion_id, evaluador_id)
