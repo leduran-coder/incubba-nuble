@@ -31,11 +31,19 @@ export interface ResumenProyectoEvaluador {
   postulante: string;
 }
 
+
 export interface AvanceEvaluador {
   id: number;
   nombre: string;
   email: string;
   activo: boolean;
+  // Independiente de "activo" (acceso al sistema): si es false, las
+  // evaluaciones y bonificaciones de este evaluador/a NO se están sumando
+  // en los promedios de Resultados/Estadísticas/reportes ahora mismo -- ver
+  // scoring.ts. El avance de esta tabla (completas/pendientes) se calcula
+  // igual sin importar este valor, porque es información de seguimiento,
+  // no del cálculo de puntajes.
+  incluidoEnResultados: boolean;
   totalPostulaciones: number;
   etapa1Completas: number;
   etapa2Completas: number;
@@ -55,6 +63,7 @@ export interface AvanceEvaluador {
   pendientesEtapa2: ResumenProyectoEvaluador[];
   pendientesEtapa3: ResumenProyectoEvaluador[];
   pendientesBono: ResumenProyectoEvaluador[];
+
 }
 
 interface FilaBonoFecha {
@@ -88,6 +97,7 @@ export async function avancePorEvaluador(): Promise<AvanceEvaluador[]> {
     if (!actual || fecha > actual) ultimaPorEvaluador.set(evaluadorId, fecha);
   }
 
+
   for (const ev of evaluaciones) {
     if (!mapa.has(ev.evaluador_id)) mapa.set(ev.evaluador_id, new Map());
     const porPostulacion = mapa.get(ev.evaluador_id)!;
@@ -119,6 +129,7 @@ export async function avancePorEvaluador(): Promise<AvanceEvaluador[]> {
   }
 
   return evaluadores
+
     .map((u) => {
       const porPostulacion = mapa.get(u.id);
       let etapa1 = 0;
@@ -151,6 +162,7 @@ export async function avancePorEvaluador(): Promise<AvanceEvaluador[]> {
         };
         if (!e1ok) pendientesEtapa1.push(resumen);
         if (!e2ok) pendientesEtapa2.push(resumen);
+
         if (!e3ok) pendientesEtapa3.push(resumen);
         if (!bonoOk) pendientesBono.push(resumen);
       }
@@ -160,6 +172,7 @@ export async function avancePorEvaluador(): Promise<AvanceEvaluador[]> {
         nombre: u.nombre,
         email: u.email,
         activo: u.activo,
+        incluidoEnResultados: u.incluido_en_resultados,
         totalPostulaciones,
         etapa1Completas: etapa1,
         etapa2Completas: etapa2,
@@ -182,6 +195,7 @@ export interface AvanceProyecto {
   postulante: string;
   evaluadoresQueParticiparon: number;
   evaluacionesCompletas: number;
+
   sinPotencialDinamico: boolean;
 }
 
@@ -214,6 +228,7 @@ export async function avancePorProyecto(): Promise<AvanceProyecto[]> {
 
   const bonoCompleto = new Set<string>();
   for (const b of bonificaciones) bonoCompleto.add(`${b.postulacion_id}:${b.evaluador_id}`);
+
 
   return postulaciones.map((p) => {
     const porEvaluador = mapa.get(p.id);
