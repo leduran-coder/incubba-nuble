@@ -316,6 +316,15 @@ export async function calcularResultadoFinal(postulacion: Postulacion): Promise<
 // por postulación.
 // ---------------------------------------------------------------------------
 
+// Texto exacto de la alternativa del formulario que indica que el
+// emprendimiento ya está formalizado ante el SII y generando ventas (a
+// diferencia de "...hace menos de 12 meses y no ha generado ventas", que es
+// otra alternativa distinta dentro del mismo tipo "Formalizado"). Se usa
+// para marcar esos proyectos en el listado de Resultados con un ícono de
+// alerta, ya que representan un caso distinto al de una idea o un
+// emprendimiento recién formalizado sin ventas todavía.
+export const ESTADO_YA_FACTURANDO = "Mi emprendimiento está formalizado ante el SII y está facturando";
+
 export interface FilaRanking {
   ranking: number;
   id: number;
@@ -329,6 +338,10 @@ export interface FilaRanking {
   etapa3: number | null;
   bonificacion: number;
   puntajeFinal: number | null;
+  // true si el postulante declaró la alternativa ESTADO_YA_FACTURANDO en el
+  // formulario -- puramente informativo, no afecta ningún cálculo de
+  // puntaje ni de bonificación.
+  yaFacturando: boolean;
 }
 
 const ORDEN_ADMISIBILIDAD: Record<EstadoAdmisibilidad, number> = {
@@ -389,6 +402,7 @@ export async function tablaRanking(postulaciones: Postulacion[]): Promise<FilaRa
       etapa3: r.puntaje_etapa_3,
       bonificacion: r.bonificacion,
       puntajeFinal: r.puntaje_final,
+      yaFacturando: p.estado_detalle === ESTADO_YA_FACTURANDO,
     };
   });
 
