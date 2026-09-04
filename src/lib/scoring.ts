@@ -30,6 +30,7 @@ import {
   calcularPuntajeCriterio,
   type FactorBonificacion,
 } from "@/lib/rubric";
+
 import type { Evaluacion, Postulacion } from "@/lib/types";
 import { nombreCompleto, nombreProyecto } from "@/lib/types";
 
@@ -52,10 +53,22 @@ interface ConfigBonificacion {
   puntaje_maximo?: number;
 }
 
+// Todas las consultas de este archivo que traen evaluaciones o bonificaciones
+// manuales excluyen las de evaluadores/as marcados como "no incluido en
+// resultados" (Seguimiento → columna "Incluido en resultados"). Es
+// independiente de si el usuario puede iniciar sesión ("activo"): permite al
+// administrador/a excluir puntualmente a un evaluador/a del cálculo (por
+// ejemplo, al cerrar el proceso con evaluadores que no alcanzaron a
+// terminar) sin borrar ni tocar ninguna respuesta ya guardada, y sin quitarle
+// el acceso al sistema. Basta con el join contra usuarios -- no hace falta
+// traer la lista de ids por separado.
 async function evaluacionesDe(postulacionId: number, etapaId: string): Promise<Evaluacion[]> {
+
   const rows = await sql<Evaluacion[]>`
-    select * from evaluaciones
-    where postulacion_id = ${postulacionId} and etapa_id = ${etapaId}
+    select e.* from evaluaciones e
+    join usuarios u on u.id = e.evaluador_id
+    where e.postulacion_id = ${postulacionId} and e.etapa_id = ${etapaId}
+      and u.incluido_en_resultados = true
   `;
   return rows;
 }
@@ -83,6 +96,7 @@ function puntajesPorEvaluadorDesdeLista(
 
   const resultado: Record<number, number> = {};
   for (const [evaluadorId, respuestas] of porEvaluador) {
+
     const tieneTodos = [...criteriosIds].every((id) => respuestas.has(id));
     if (!tieneTodos) continue;
     let total = 0;
@@ -115,6 +129,7 @@ function estadoAdmisibilidadDesdeLista(
 
 function calcularBonificacionDesdeDatos(
   postulacion: Postulacion,
+
   config: ConfigBonificacion,
   filasManuales: FilaBonificacionManual[],
   sectoresEstrategicos: string[]
@@ -146,6 +161,7 @@ function calcularBonificacionDesdeDatos(
     escalabilidad_modelo: "escalabilidad_1_a_5",
     traccion_temprana: "traccion_1_a_5",
   };
+
 
   function promedioManual(columna: ColumnaManual): number | null {
     const valores = filasManuales.map((f) => f[columna]).filter((v): v is number => v !== null);
@@ -179,6 +195,7 @@ function calcularBonificacionDesdeDatos(
       puntosFactor = mapeo[valorPostulante];
     }
 
+
     detalle[factor.id] = Math.round(puntosFactor * 100) / 100;
     totalPonderado += puntosFactor * peso;
     pesoTotal += peso;
@@ -211,6 +228,7 @@ function calcularResultadoFinalDesdeDatos(
   );
 
   const componentes: Array<[number, number]> = [];
+
   if (puntajeE2 !== null) componentes.push([puntajeE2, pesoEtapas.etapa_2 ?? 0]);
   if (puntajeE3 !== null) componentes.push([puntajeE3, pesoEtapas.etapa_3 ?? 0]);
 
@@ -243,6 +261,7 @@ export async function puntajeEtapaPorEvaluador(
   etapaId: string
 ): Promise<Record<number, number>> {
   const evaluaciones = await evaluacionesDe(postulacionId, etapaId);
+
   return puntajesPorEvaluadorDesdeLista(evaluaciones, etapaId);
 }
 
@@ -267,13 +286,15 @@ export async function calcularBonificacion(
   const sectoresEstrategicos = await getSectoresEstrategicos();
 
   const filasManuales = await sql<FilaBonificacionManual[]>`
-    select valor_1_a_5, madurez_tecnologica_1_a_5, escalabilidad_1_a_5, traccion_1_a_5
-    from bonificaciones_manuales
-    where postulacion_id = ${postulacion.id}
+    select b.valor_1_a_5, b.madurez_tecnologica_1_a_5, b.escalabilidad_1_a_5, b.traccion_1_a_5
+    from bonificaciones_manuales b
+    join usuarios u on u.id = b.evaluador_id
+    where b.postulacion_id = ${postulacion.id} and u.incluido_en_resultados = true
   `;
 
   return calcularBonificacionDesdeDatos(postulacion, config, filasManuales, sectoresEstrategicos);
 }
+
 
 export interface ResultadoFinal {
   postulacion_id: number;
@@ -291,16 +312,22 @@ export async function calcularResultadoFinal(postulacion: Postulacion): Promise<
   const [pesoEtapas, configBono, evaluaciones, filasManuales, sectoresEstrategicos] = await Promise.all([
     getConfig<Record<string, number>>("peso_etapas"),
     getConfigBonificacion(),
-    sql<Evaluacion[]>`select * from evaluaciones where postulacion_id = ${postulacion.id}`,
+    sql<Evaluacion[]>`
+      select e.* from evaluaciones e
+      join usuarios u on u.id = e.evaluador_id
+      where e.postulacion_id = ${postulacion.id} and u.incluido_en_resultados = true
+    `,
     sql<FilaBonificacionManual[]>`
-      select valor_1_a_5, madurez_tecnologica_1_a_5, escalabilidad_1_a_5, traccion_1_a_5
-      from bonificaciones_manuales
-      where postulacion_id = ${postulacion.id}
+      select b.valor_1_a_5, b.madurez_tecnologica_1_a_5, b.escalabilidad_1_a_5, b.traccion_1_a_5
+      from bonificaciones_manuales b
+      join usuarios u on u.id = b.evaluador_id
+      where b.postulacion_id = ${postulacion.id} and u.incluido_en_resultados = true
     `,
     getSectoresEstrategicos(),
   ]);
 
   return calcularResultadoFinalDesdeDatos(
+
     postulacion,
     pesoEtapas,
     configBono,
@@ -333,6 +360,7 @@ export interface FilaRanking {
   comuna: string | null;
   genero: string | null;
   tipo: string | null;
+
   admisibilidad: EstadoAdmisibilidad;
   etapa2: number | null;
   etapa3: number | null;
@@ -358,11 +386,17 @@ export async function tablaRanking(postulaciones: Postulacion[]): Promise<FilaRa
   const [pesoEtapas, configBono, todasEvaluaciones, todasBonificaciones, sectoresEstrategicos] = await Promise.all([
     getConfig<Record<string, number>>("peso_etapas"),
     getConfigBonificacion(),
-    sql<Evaluacion[]>`select * from evaluaciones where postulacion_id = any(${ids})`,
+    sql<Evaluacion[]>`
+      select e.* from evaluaciones e
+      join usuarios u on u.id = e.evaluador_id
+      where e.postulacion_id = any(${ids}) and u.incluido_en_resultados = true
+    `,
     sql<(FilaBonificacionManual & { postulacion_id: number })[]>`
-      select postulacion_id, valor_1_a_5, madurez_tecnologica_1_a_5, escalabilidad_1_a_5, traccion_1_a_5
-      from bonificaciones_manuales
-      where postulacion_id = any(${ids})
+      select b.postulacion_id, b.valor_1_a_5, b.madurez_tecnologica_1_a_5, b.escalabilidad_1_a_5, b.traccion_1_a_5
+
+      from bonificaciones_manuales b
+      join usuarios u on u.id = b.evaluador_id
+      where b.postulacion_id = any(${ids}) and u.incluido_en_resultados = true
     `,
     getSectoresEstrategicos(),
   ]);
@@ -392,6 +426,7 @@ export async function tablaRanking(postulaciones: Postulacion[]): Promise<FilaRa
     );
     return {
       id: p.id,
+
       proyecto: nombreProyecto(p),
       postulante: nombreCompleto(p),
       comuna: p.comuna,
