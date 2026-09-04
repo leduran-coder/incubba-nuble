@@ -5,6 +5,11 @@ export interface Usuario {
   password_hash: string;
   rol: "admin" | "evaluador";
   activo: boolean;
+  // Independiente de "activo" (que solo controla el acceso al sistema): si
+  // es false, las evaluaciones y bonificaciones ya registradas por este
+  // usuario se excluyen de los promedios (Resultados, Estadísticas,
+  // reportes Word) sin borrar ni tocar ningún dato guardado.
+  incluido_en_resultados: boolean;
   creado_en: string;
 }
 
@@ -25,12 +30,12 @@ export interface Postulacion {
   participa_programa_similar: string | null;
   tipo_emprendimiento: string | null;
   estado_detalle: string | null;
+
   nombre_emprendimiento: string | null;
   nombre_empresa: string | null;
   rut_empresa: string | null;
   tipo_empresa: string | null;
   sector_industria: string | null;
-
   tamano_empresa: string | null;
   descripcion: string | null;
   propuesta_valor: string | null;
@@ -58,12 +63,12 @@ export function nombreCompleto(p: Postulacion): string {
   return [p.nombres, p.apellido_paterno, p.apellido_materno].filter(Boolean).join(" ");
 }
 
+
 export function nombreProyecto(p: Postulacion): string {
   return p.nombre_emprendimiento || p.nombre_empresa || "(sin nombre)";
 }
 
 export interface Evaluacion {
-
   id: number;
   postulacion_id: number;
   evaluador_id: number;
@@ -91,12 +96,12 @@ export interface BonificacionManual {
 
 export interface BonificacionManualValores {
   valor_1_a_5: number | null;
+
   madurez_tecnologica_1_a_5: number | null;
   escalabilidad_1_a_5: number | null;
   traccion_1_a_5: number | null;
   comentario: string | null;
 }
-
 
 export interface ConfiguracionClave {
   clave: string;
