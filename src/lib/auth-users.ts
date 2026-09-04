@@ -86,6 +86,17 @@ export async function actualizarEstadoUsuario(id: number, activo: boolean): Prom
   await sql`update usuarios set activo = ${activo} where id = ${id}`;
 }
 
+/**
+ * Cambia si las evaluaciones y bonificaciones de este usuario cuentan en los
+ * promedios (Resultados, Estadísticas, reportes Word). No toca "activo" --
+ * el usuario puede seguir entrando al sistema y calificando con normalidad
+ * aunque esté excluido del cálculo, y sus respuestas ya guardadas no se
+ * borran ni se modifican: simplemente no se suman mientras esté excluido.
+ */
+export async function actualizarInclusionEnResultados(id: number, incluido: boolean): Promise<void> {
+  await sql`update usuarios set incluido_en_resultados = ${incluido} where id = ${id}`;
+}
+
 export async function cambiarPassword(id: number, nuevaPassword: string): Promise<void> {
   const hash = await hashPassword(nuevaPassword);
   await sql`update usuarios set password_hash = ${hash} where id = ${id}`;
