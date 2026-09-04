@@ -17,6 +17,7 @@ function toCsv(filas: FilaRanking[]): string {
     "Etapa 3",
     "Bonificación",
     "Puntaje final",
+    "Ya factura (SII)",
   ];
   const filasCsv = filas.map((f) =>
     [
@@ -32,6 +33,7 @@ function toCsv(filas: FilaRanking[]): string {
       f.etapa3 ?? "",
       f.bonificacion,
       f.puntajeFinal ?? "",
+      f.yaFacturando ? "Sí" : "No",
     ]
       .map((v) => `"${String(v).replace(/"/g, '""')}"`)
       .join(",")
@@ -120,7 +122,20 @@ export function ResultadosTable({ filas, cupoMaximo }: { filas: FilaRanking[]; c
               >
                 <td className="px-3 py-2 font-bold">{f.ranking}</td>
                 <td className="px-3 py-2">{f.id}</td>
-                <td className="px-3 py-2 font-medium">{f.proyecto}</td>
+                <td className="px-3 py-2 font-medium">
+                  <span className="inline-flex items-center gap-1.5">
+                    {f.proyecto}
+                    {f.yaFacturando ? (
+                      <span
+                        title="Ya facturando: declaró estar formalizado ante el SII y con ventas generadas."
+                        aria-label="Ya facturando"
+                        className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-red-600 text-white text-[10px] font-bold leading-none shrink-0"
+                      >
+                        $
+                      </span>
+                    ) : null}
+                  </span>
+                </td>
                 <td className="px-3 py-2">{f.postulante}</td>
                 <td className="px-3 py-2">{f.comuna ?? "—"}</td>
                 <td className="px-3 py-2">{f.genero ?? "—"}</td>
@@ -135,8 +150,18 @@ export function ResultadosTable({ filas, cupoMaximo }: { filas: FilaRanking[]; c
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-gris-muted mb-4">
+      <p className="text-xs text-gris-muted mb-1">
         Las filas resaltadas corresponden al top {cupoMaximo} (cupo máximo según las bases).
+      </p>
+      <p className="text-xs text-gris-muted mb-4 flex items-center gap-1.5">
+        <span
+          aria-hidden="true"
+          className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-red-600 text-white text-[10px] font-bold leading-none shrink-0"
+        >
+          $
+        </span>
+        junto al nombre del proyecto: el postulante declaró en el formulario que su emprendimiento ya
+        está formalizado ante el SII y generando ventas.
       </p>
 
       <button onClick={descargar} className="btn-primary">
