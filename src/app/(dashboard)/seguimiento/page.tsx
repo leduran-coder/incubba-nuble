@@ -33,7 +33,12 @@ export default async function SeguimientoPage() {
         usa la plataforma para promediar los puntajes en Resultados. &quot;Proyectos evaluados por
         completo&quot; exige Etapa 1 + Etapa 2 + Etapa 3 + Bonificación, las 4 a la vez. Haz clic en
         &quot;Ver detalle&quot; en la fila de cada evaluador/a para ver, separado por Etapa 1, Etapa 2,
-        Etapa 3 y Bonificación, cuáles proyectos le faltan todavía en cada una.
+        Etapa 3 y Bonificación, cuáles proyectos le faltan todavía en cada una. El botón &quot;Incluido en
+        resultados&quot; es distinto de &quot;Activo/a&quot; (que solo controla el acceso al sistema): si
+        excluyes a un evaluador/a, sus evaluaciones y bonificaciones ya guardadas dejan de sumarse en
+        Resultados, Estadísticas y en el reporte Word al instante — sin borrar ni tocar ninguna respuesta,
+        y puedes volver a incluirlo cuando quieras. Útil para ver cómo varía el ranking al cerrar el
+        proceso si algún evaluador/a no alcanzó a terminar.
       </p>
 
       <h3 className="text-lg font-bold mb-3">Reportes consolidados por proyecto</h3>
