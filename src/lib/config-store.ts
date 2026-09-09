@@ -21,12 +21,21 @@ export interface ConfigIA {
 
 export const IA_SUGERENCIA_DEFAULT: ConfigIA = { activa: false };
 
+export interface ConfigProceso {
+  cerrado?: boolean;
+}
+
+// Por defecto el proceso está abierto: hay que cerrarlo explícitamente desde
+// Configuración → 🔒 Cierre del proceso.
+export const PROCESO_EVALUACION_DEFAULT: ConfigProceso = { cerrado: false };
+
 const DEFAULTS: Record<string, unknown> = {
   peso_etapas: PESO_ETAPAS_DEFAULT,
   bonificacion: BONIFICACION_DEFAULT,
   criterios_adicionales: CRITERIOS_ADICIONALES,
   sectores_estrategicos: SECTORES_ESTRATEGICOS_DEFAULT,
   ia_sugerencia: IA_SUGERENCIA_DEFAULT,
+  proceso_evaluacion: PROCESO_EVALUACION_DEFAULT,
 };
 
 export async function getConfig<T = Record<string, unknown>>(clave: string): Promise<T> {
@@ -114,4 +123,19 @@ export async function getSectoresEstrategicos(): Promise<string[]> {
 export async function iaSugerenciaActiva(): Promise<boolean> {
   const config = await getConfig<ConfigIA>("ia_sugerencia");
   return config.activa === true;
+}
+
+/**
+ * Indica si el/la administrador/a cerró el proceso de evaluación (botón
+ * "Cerrar proceso de evaluación" en Configuración → 🔒 Cierre del proceso).
+ * Mientras esté cerrado, guardarEvaluacionEtapa y guardarBonificacionManual
+ * (en actions/evaluacion.ts) rechazan cualquier intento de guardar, sin
+ * importar quién lo intente -- evaluador/a o administrador/a -- pero sin
+ * borrar ni tocar ninguna evaluación o bonificación ya guardada. Es una
+ * acción 100% reversible: basta con volver a esa misma pantalla y reabrir
+ * el proceso para que se pueda seguir calificando con normalidad.
+ */
+export async function procesoEvaluacionCerrado(): Promise<boolean> {
+  const config = await getConfig<ConfigProceso>("proceso_evaluacion");
+  return config.cerrado === true;
 }
