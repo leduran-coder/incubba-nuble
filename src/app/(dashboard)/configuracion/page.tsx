@@ -3,7 +3,13 @@ import { auth } from "@/auth";
 import { Hero } from "@/components/Hero";
 import { ConfiguracionTabs } from "@/components/configuracion/ConfiguracionTabs";
 import { listarUsuarios } from "@/lib/auth-users";
-import { getConfig, getConfigBonificacion, getSectoresEstrategicos, iaSugerenciaActiva } from "@/lib/config-store";
+import {
+  getConfig,
+  getConfigBonificacion,
+  getSectoresEstrategicos,
+  iaSugerenciaActiva,
+  procesoEvaluacionCerrado,
+} from "@/lib/config-store";
 
 export default async function ConfiguracionPage() {
   const session = await auth();
@@ -15,6 +21,7 @@ export default async function ConfiguracionPage() {
   const pesoEtapas = await getConfig<Record<string, number>>("peso_etapas");
   const sectoresEstrategicos = await getSectoresEstrategicos();
   const iaActiva = await iaSugerenciaActiva();
+  const procesoCerrado = await procesoEvaluacionCerrado();
 
   return (
     <div>
@@ -34,6 +41,7 @@ export default async function ConfiguracionPage() {
         pesoEtapas={{ etapa_2: pesoEtapas.etapa_2 ?? 0.65, etapa_3: pesoEtapas.etapa_3 ?? 0.35 }}
         sectoresEstrategicos={sectoresEstrategicos}
         iaActiva={iaActiva}
+        procesoCerrado={procesoCerrado}
       />
     </div>
   );
