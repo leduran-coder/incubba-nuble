@@ -7,7 +7,7 @@ import { nombreCompleto, nombreProyecto } from "@/lib/types";
 import { ETAPA_1, ETAPA_2, ETAPA_3, BONIFICACION_DEFAULT } from "@/lib/rubric";
 import { respuestasEvaluador, bonoManualEvaluador, bonoManualDeOtrosEvaluadores } from "@/lib/evaluaciones";
 import { promedioEtapa, estadoAdmisibilidad, calcularBonificacion } from "@/lib/scoring";
-import { getConfigBonificacion, iaSugerenciaActiva } from "@/lib/config-store";
+import { getConfigBonificacion, iaSugerenciaActiva, procesoEvaluacionCerrado } from "@/lib/config-store";
 
 export default async function EvaluacionPage({
   searchParams,
@@ -31,7 +31,6 @@ export default async function EvaluacionPage({
     );
   }
 
-
   const { id } = await searchParams;
   const postulacionId = id ? Number(id) : postulaciones[0].id;
   const postulacion = postulaciones.find((p) => p.id === postulacionId) ?? postulaciones[0];
@@ -51,6 +50,7 @@ export default async function EvaluacionPage({
   const otrosValoresManuales = await bonoManualDeOtrosEvaluadores(postulacion.id, evaluadorId);
   const config = await getConfigBonificacion();
   const iaActiva = await iaSugerenciaActiva();
+  const procesoCerrado = await procesoEvaluacionCerrado();
 
   return (
     <div>
@@ -59,11 +59,21 @@ export default async function EvaluacionPage({
         subtitulo="Calificación según las rúbricas oficiales de las bases y bonificación dinámica"
         pill="Pauta de Evaluación"
       />
+      {procesoCerrado ? (
+        <div className="rounded-lg border border-red-300 bg-red-50 p-4 mb-5">
+          <p className="text-sm text-red-800">
+            <strong>El proceso de evaluación está cerrado.</strong> El administrador/a cerró el
+            plazo: ya no se pueden guardar evaluaciones ni bonificaciones nuevas. Todo lo que ya
+            estaba guardado sigue disponible sin ningún cambio. Si necesitas hacer una corrección,
+            pídele al administrador/a que reabra el proceso en Configuración → 🔒 Cierre del
+            proceso.
+          </p>
+        </div>
+      ) : null}
       <EvaluacionPanel
         postulaciones={postulaciones.map((p) => ({
           id: p.id,
           label: `#${p.id} · ${nombreProyecto(p)} — ${nombreCompleto(p)}`,
-
         }))}
         postulacionId={postulacion.id}
         etapasData={etapasData}
@@ -81,6 +91,7 @@ export default async function EvaluacionPage({
         puntajeMaximoBono={config.puntaje_maximo ?? 10}
         iaActiva={iaActiva}
         sinPotencialDinamico={postulacion.sin_potencial_dinamico}
+        procesoCerrado={procesoCerrado}
       />
     </div>
   );
