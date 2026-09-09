@@ -4,15 +4,31 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { sql } from "@/lib/db";
 import { ETAPAS_POR_ID, calcularPuntajeCriterio } from "@/lib/rubric";
+import { procesoEvaluacionCerrado } from "@/lib/config-store";
+
+// Mensaje mostrado cuando el administrador/a ya cerró el proceso (ver
+// procesoEvaluacionCerrado en config-store.ts): se repite igual en las dos
+// funciones de este archivo para que evaluadores y administrador/a vean
+// siempre la misma explicación, sin importar desde qué pestaña intenten
+// guardar.
+const MENSAJE_PROCESO_CERRADO =
+  "El administrador/a cerró el proceso de evaluación: ya no se pueden guardar cambios. " +
+  "Todo lo que ya habías guardado sigue intacto. Si necesitas corregir algo, pídele al " +
+  "administrador/a que reabra el proceso en Configuración → 🔒 Cierre del proceso.";
 
 export async function guardarEvaluacionEtapa(
   postulacionId: number,
   etapaId: string,
   respuestas: Record<string, string | null>,
   comentario: string
-): Promise<{ faltantes: string[] }> {
+): Promise<{ faltantes: string[]; error?: string }> {
   const session = await auth();
   if (!session?.user) throw new Error("No autenticado.");
+
+  if (await procesoEvaluacionCerrado()) {
+    return { faltantes: [], error: MENSAJE_PROCESO_CERRADO };
+  }
+
   const evaluadorId = Number(session.user.id);
   const etapa = ETAPAS_POR_ID[etapaId];
   if (!etapa) throw new Error("Etapa inválida.");
@@ -51,9 +67,14 @@ export async function guardarBonificacionManual(
     traccionTemprana: number;
   },
   comentario: string
-): Promise<void> {
+): Promise<{ error?: string }> {
   const session = await auth();
   if (!session?.user) throw new Error("No autenticado.");
+
+  if (await procesoEvaluacionCerrado()) {
+    return { error: MENSAJE_PROCESO_CERRADO };
+  }
+
   const evaluadorId = Number(session.user.id);
 
   await sql`
@@ -79,4 +100,5 @@ export async function guardarBonificacionManual(
 
   revalidatePath("/evaluacion");
   revalidatePath("/resultados");
+  return {};
 }
