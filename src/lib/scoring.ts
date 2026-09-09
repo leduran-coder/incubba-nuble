@@ -30,7 +30,6 @@ import {
   calcularPuntajeCriterio,
   type FactorBonificacion,
 } from "@/lib/rubric";
-
 import type { Evaluacion, Postulacion } from "@/lib/types";
 import { nombreCompleto, nombreProyecto } from "@/lib/types";
 
@@ -63,7 +62,6 @@ interface ConfigBonificacion {
 // el acceso al sistema. Basta con el join contra usuarios -- no hace falta
 // traer la lista de ids por separado.
 async function evaluacionesDe(postulacionId: number, etapaId: string): Promise<Evaluacion[]> {
-
   const rows = await sql<Evaluacion[]>`
     select e.* from evaluaciones e
     join usuarios u on u.id = e.evaluador_id
@@ -96,7 +94,6 @@ function puntajesPorEvaluadorDesdeLista(
 
   const resultado: Record<number, number> = {};
   for (const [evaluadorId, respuestas] of porEvaluador) {
-
     const tieneTodos = [...criteriosIds].every((id) => respuestas.has(id));
     if (!tieneTodos) continue;
     let total = 0;
@@ -129,7 +126,6 @@ function estadoAdmisibilidadDesdeLista(
 
 function calcularBonificacionDesdeDatos(
   postulacion: Postulacion,
-
   config: ConfigBonificacion,
   filasManuales: FilaBonificacionManual[],
   sectoresEstrategicos: string[]
@@ -161,7 +157,6 @@ function calcularBonificacionDesdeDatos(
     escalabilidad_modelo: "escalabilidad_1_a_5",
     traccion_temprana: "traccion_1_a_5",
   };
-
 
   function promedioManual(columna: ColumnaManual): number | null {
     const valores = filasManuales.map((f) => f[columna]).filter((v): v is number => v !== null);
@@ -195,7 +190,6 @@ function calcularBonificacionDesdeDatos(
       puntosFactor = mapeo[valorPostulante];
     }
 
-
     detalle[factor.id] = Math.round(puntosFactor * 100) / 100;
     totalPonderado += puntosFactor * peso;
     pesoTotal += peso;
@@ -209,7 +203,13 @@ function calcularBonificacionDesdeDatos(
   return { bono: bonoFinal, detalle };
 }
 
-function calcularResultadoFinalDesdeDatos(
+// Exportada (además de usarse dentro de este archivo) para que ai-ranking.ts
+// pueda calcular el "Ranking IA" con exactamente la misma fórmula, los
+// mismos pesos y el mismo umbral de admisibilidad que el ranking oficial,
+// pero alimentada con niveles sugeridos por IA en vez de evaluaciones
+// humanas -- sin duplicar ni un poquito de esta lógica. Como es una función
+// pura (no consulta la base de datos), sirve igual para ambos casos.
+export function calcularResultadoFinalDesdeDatos(
   postulacion: Postulacion,
   pesoEtapas: Record<string, number>,
   configBono: ConfigBonificacion,
@@ -228,7 +228,6 @@ function calcularResultadoFinalDesdeDatos(
   );
 
   const componentes: Array<[number, number]> = [];
-
   if (puntajeE2 !== null) componentes.push([puntajeE2, pesoEtapas.etapa_2 ?? 0]);
   if (puntajeE3 !== null) componentes.push([puntajeE3, pesoEtapas.etapa_3 ?? 0]);
 
@@ -261,7 +260,6 @@ export async function puntajeEtapaPorEvaluador(
   etapaId: string
 ): Promise<Record<number, number>> {
   const evaluaciones = await evaluacionesDe(postulacionId, etapaId);
-
   return puntajesPorEvaluadorDesdeLista(evaluaciones, etapaId);
 }
 
@@ -295,7 +293,6 @@ export async function calcularBonificacion(
   return calcularBonificacionDesdeDatos(postulacion, config, filasManuales, sectoresEstrategicos);
 }
 
-
 export interface ResultadoFinal {
   postulacion_id: number;
   estado_admisibilidad: EstadoAdmisibilidad;
@@ -327,7 +324,6 @@ export async function calcularResultadoFinal(postulacion: Postulacion): Promise<
   ]);
 
   return calcularResultadoFinalDesdeDatos(
-
     postulacion,
     pesoEtapas,
     configBono,
@@ -360,7 +356,6 @@ export interface FilaRanking {
   comuna: string | null;
   genero: string | null;
   tipo: string | null;
-
   admisibilidad: EstadoAdmisibilidad;
   etapa2: number | null;
   etapa3: number | null;
@@ -393,7 +388,6 @@ export async function tablaRanking(postulaciones: Postulacion[]): Promise<FilaRa
     `,
     sql<(FilaBonificacionManual & { postulacion_id: number })[]>`
       select b.postulacion_id, b.valor_1_a_5, b.madurez_tecnologica_1_a_5, b.escalabilidad_1_a_5, b.traccion_1_a_5
-
       from bonificaciones_manuales b
       join usuarios u on u.id = b.evaluador_id
       where b.postulacion_id = any(${ids}) and u.incluido_en_resultados = true
@@ -426,7 +420,6 @@ export async function tablaRanking(postulaciones: Postulacion[]): Promise<FilaRa
     );
     return {
       id: p.id,
-
       proyecto: nombreProyecto(p),
       postulante: nombreCompleto(p),
       comuna: p.comuna,
