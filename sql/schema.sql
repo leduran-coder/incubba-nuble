@@ -30,7 +30,6 @@ create table if not exists usuarios (
   -- respuesta ya guardada.
   incluido_en_resultados boolean not null default true,
   creado_en timestamptz default now()
-
 );
 
 -- Si esta tabla ya existía de una convocatoria anterior (creada antes de que
@@ -63,7 +62,6 @@ create table if not exists postulaciones (
   tipo_emprendimiento text,
   estado_detalle text,
   nombre_emprendimiento text,
-
   nombre_empresa text,
   rut_empresa text,
   tipo_empresa text,
@@ -96,7 +94,6 @@ create table if not exists postulaciones (
   -- de lo que hagan los evaluadores: ellos siguen viendo y usando la
   -- pestaña "Bonificación" con total normalidad, y sus respuestas guardadas
   -- en bonificaciones_manuales nunca se tocan ni se borran por esta marca.
-
   sin_potencial_dinamico boolean not null default false,
   creado_en timestamptz default now()
 );
@@ -129,7 +126,6 @@ create table if not exists bonificaciones_manuales (
   escalabilidad_1_a_5 integer,
   traccion_1_a_5 integer,
   comentario text,
-
   creado_en timestamptz default now(),
   actualizado_en timestamptz default now(),
   constraint uq_bono_manual_unico unique (postulacion_id, evaluador_id)
@@ -139,6 +135,35 @@ create table if not exists configuracion (
   clave varchar(80) primary key,
   valor_json text not null,
   actualizado_en timestamptz default now()
+);
+
+-- Guarda el resultado del "Ranking IA" (Configuración/página exclusiva para
+-- administrador/a): una evaluación de referencia generada automáticamente
+-- por IA para TODAS las postulaciones, puramente informativa. Una fila por
+-- postulación (se reemplaza cada vez que se vuelve a generar para esa misma
+-- postulación, por eso "postulacion_id" es la llave primaria). Nunca se lee
+-- ni se escribe desde evaluaciones ni bonificaciones_manuales -- vive
+-- completamente separada del ranking oficial para no interferir jamás con
+-- el trabajo del panel evaluador humano.
+create table if not exists ranking_ia (
+  postulacion_id integer primary key references postulaciones(id) on delete cascade,
+  -- Sugerencias crudas de la IA por criterio/factor (nivel o valor 1-5 +
+  -- justificación), guardadas como JSON para poder mostrar el detalle
+  -- completo sin tener que volver a llamar a la IA.
+  etapa1 jsonb not null,
+  etapa2 jsonb not null,
+  bono jsonb not null,
+  -- Puntajes ya calculados con la MISMA fórmula y los mismos pesos que usa
+  -- el ranking oficial (ver calcularResultadoFinalDesdeDatos en scoring.ts),
+  -- para que el número sea comparable. Etapa 3 (Entrevista personal) no
+  -- existe en este cálculo porque la IA no puede evaluarla -- el puntaje
+  -- final queda compuesto solo por Etapa 2 + Bonificación.
+  estado_admisibilidad varchar(20) not null,
+  puntaje_admisibilidad double precision,
+  puntaje_etapa2 double precision,
+  puntaje_bono double precision,
+  puntaje_final double precision,
+  generado_en timestamptz not null default now()
 );
 
 create index if not exists idx_evaluaciones_postulacion on evaluaciones(postulacion_id);
