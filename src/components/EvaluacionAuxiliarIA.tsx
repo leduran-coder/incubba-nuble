@@ -5,14 +5,17 @@ import { generarEvaluacionCompletaIA } from "@/lib/actions/ia";
 import type { EvaluacionCompletaIA, SugerenciaCriterio } from "@/lib/ai-evaluacion-completa";
 import { ETAPA_1, ETAPA_2 } from "@/lib/rubric";
 
-const CLAVES_BONO = [
+// Exportadas para que RankingIATabla.tsx pueda mostrar el mismo detalle por
+// factor (nombre + justificación) en el "Ver detalle" de cada proyecto, sin
+// duplicar esta lista.
+export const CLAVES_BONO = [
   "madurez_tecnologica",
   "escalabilidad_modelo",
   "traccion_temprana",
   "ambicion_proyeccion",
 ] as const;
 
-const NOMBRE_BONO: Record<(typeof CLAVES_BONO)[number], string> = {
+export const NOMBRE_BONO: Record<(typeof CLAVES_BONO)[number], string> = {
   madurez_tecnologica: "Madurez tecnológica y propiedad intelectual",
   escalabilidad_modelo: "Escalabilidad del modelo de negocio",
   traccion_temprana: "Tracción temprana validada",
@@ -108,7 +111,10 @@ export function EvaluacionAuxiliarIA({
   );
 }
 
-function SeccionCriterios({
+// Exportado por el mismo motivo que CLAVES_BONO/NOMBRE_BONO arriba: lo
+// reutiliza RankingIATabla.tsx para mostrar el detalle de Etapa 1 y Etapa 2
+// dentro del "Ver detalle" de cada proyecto en el Ranking IA.
+export function SeccionCriterios({
   titulo,
   criterios,
   sugerencias,
