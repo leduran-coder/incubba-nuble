@@ -30,12 +30,18 @@ interface Props {
     tipo_potencial_innovador: string | null;
     alcance_innovacion: string | null;
     ha_levantado_financiamiento: string | null;
-
     sector_industria: string | null;
   };
   puntajeMaximoBono: number;
   iaActiva: boolean;
   sinPotencialDinamico: boolean;
+  // true si el administrador/a cerró el proceso de evaluación (Configuración
+  // → 🔒 Cierre del proceso): deshabilita los botones "Guardar" de todas las
+  // etapas y de la bonificación cualitativa, para evaluadores/as y
+  // administrador/a por igual. El servidor vuelve a validar esto en
+  // actions/evaluacion.ts, así que aunque alguien intente forzar el guardado
+  // sin este aviso, igual queda bloqueado.
+  procesoCerrado: boolean;
 }
 
 const COLOR_ADMISIBILIDAD: Record<string, string> = {
@@ -57,13 +63,13 @@ export function EvaluacionPanel({
   puntajeMaximoBono,
   iaActiva,
   sinPotencialDinamico,
+  procesoCerrado,
 }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState(0);
 
   // Cada vez que se cambia de postulación (el `select` de más abajo navega a
   // /evaluacion?id=<otro id>), esta misma instancia de EvaluacionPanel se
-
   // reutiliza con props nuevas — React no la vuelve a montar solo porque
   // cambió el id. Sin este ajuste, la pestaña activa quedaba en la que
   // estuviera antes de cambiar de proyecto (ej. "Etapa 2") en vez de volver
@@ -96,7 +102,6 @@ export function EvaluacionPanel({
         value={postulacionId}
         onChange={(e) => cambiarPostulacion(Number(e.target.value))}
         className="w-full rounded-lg border border-gris-borde px-3 py-2.5 text-sm mb-5"
-
       >
         {postulaciones.map((p) => (
           <option key={p.id} value={p.id}>
@@ -129,8 +134,8 @@ export function EvaluacionPanel({
           // sin guardar del proyecto anterior.
           key={`${postulacionId}-${etapasData[tab].etapa.id}`}
           postulacionId={postulacionId}
-
           data={etapasData[tab]}
+          procesoCerrado={procesoCerrado}
         />
       ) : tab === bonoTabIndex ? (
         <BonoTab
@@ -144,6 +149,7 @@ export function EvaluacionPanel({
           puntajeMaximoBono={puntajeMaximoBono}
           iaActiva={iaActiva}
           sinPotencialDinamico={sinPotencialDinamico}
+          procesoCerrado={procesoCerrado}
         />
       ) : tab === iaTabIndex ? (
         <EvaluacionAuxiliarIA key={postulacionId} postulacionId={postulacionId} iaActiva={iaActiva} />
@@ -161,19 +167,32 @@ export function EvaluacionPanel({
   );
 }
 
-function EtapaForm({ postulacionId, data }: { postulacionId: number; data: EtapaData }) {
-
+function EtapaForm({
+  postulacionId,
+  data,
+  procesoCerrado,
+}: {
+  postulacionId: number;
+  data: EtapaData;
+  procesoCerrado: boolean;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [respuestas, setRespuestas] = useState<Record<string, string | null>>(data.respuestas);
   const [comentario, setComentario] = useState(data.comentario);
   const [faltantes, setFaltantes] = useState<string[] | null>(null);
   const [guardado, setGuardado] = useState(false);
+  const [errorProceso, setErrorProceso] = useState<string | null>(null);
 
   function guardar() {
     setGuardado(false);
+    setErrorProceso(null);
     startTransition(async () => {
       const res = await guardarEvaluacionEtapa(postulacionId, data.etapa.id, respuestas, comentario);
+      if (res.error) {
+        setErrorProceso(res.error);
+        return;
+      }
       setFaltantes(res.faltantes.length ? res.faltantes : null);
       if (res.faltantes.length === 0) setGuardado(true);
       router.refresh();
@@ -195,12 +214,12 @@ function EtapaForm({ postulacionId, data }: { postulacionId: number; data: Etapa
               </label>
               <div className="flex flex-wrap gap-2">
                 {criterio.niveles.map((n) => (
-
                   <button
                     key={n.nivel}
                     type="button"
+                    disabled={procesoCerrado}
                     onClick={() => setRespuestas((r) => ({ ...r, [criterio.id]: n.nivel }))}
-                    className={`px-3.5 py-2 rounded-lg text-sm font-medium border transition ${
+                    className={`px-3.5 py-2 rounded-lg text-sm font-medium border transition disabled:opacity-40 disabled:cursor-not-allowed ${
                       nivelSel === n.nivel
                         ? "bg-morado-vibrante text-white border-morado-vibrante"
                         : "border-gris-borde text-gris-texto hover:border-morado-vibrante"
@@ -222,22 +241,35 @@ function EtapaForm({ postulacionId, data }: { postulacionId: number; data: Etapa
           <textarea
             value={comentario}
             onChange={(e) => setComentario(e.target.value)}
+            disabled={procesoCerrado}
             rows={3}
-            className="w-full rounded-lg border border-gris-borde px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-gris-borde px-3 py-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
           />
         </div>
 
         {faltantes ? (
-
           <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
             Falta calificar: {faltantes.join(", ")}. Guarda solo los criterios ya calificados; el
             promedio de la etapa se calculará cuando estén todos completos.
           </p>
         ) : null}
         {guardado ? <p className="text-sm text-green-700">Evaluación guardada.</p> : null}
+        {errorProceso ? (
+          <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
+            {errorProceso}
+          </p>
+        ) : null}
 
-        <button onClick={guardar} disabled={isPending} className="btn-primary self-start">
-          {isPending ? "Guardando..." : "Guardar evaluación de esta etapa"}
+        <button
+          onClick={guardar}
+          disabled={isPending || procesoCerrado}
+          className="btn-primary self-start"
+        >
+          {procesoCerrado
+            ? "Proceso cerrado — no se puede guardar"
+            : isPending
+            ? "Guardando..."
+            : "Guardar evaluación de esta etapa"}
         </button>
 
         <div className="metric-card mt-2">
@@ -261,7 +293,6 @@ interface FactorSlider {
   titulo: string;
   pregunta: string;
   ancla1: string;
-
   ancla5: string;
 }
 
@@ -294,7 +325,6 @@ const FACTORES_SLIDER: FactorSlider[] = [
     pregunta: "¿Qué tan creíble (no solo ambiciosa) es la proyección de crecimiento del equipo?",
     ancla1: "Poco creíble o poco ambiciosa",
     ancla5: "Muy creíble y muy ambiciosa, con capacidad real de ejecutarla",
-
   },
 ];
 
@@ -317,6 +347,7 @@ function BonoTab({
   puntajeMaximoBono,
   iaActiva,
   sinPotencialDinamico,
+  procesoCerrado,
 }: {
   postulacionId: number;
   bonoManual: BonificacionManualValores | null;
@@ -327,7 +358,7 @@ function BonoTab({
   puntajeMaximoBono: number;
   iaActiva: boolean;
   sinPotencialDinamico: boolean;
-
+  procesoCerrado: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -339,6 +370,7 @@ function BonoTab({
   });
   const [comentario, setComentario] = useState(bonoManual?.comentario ?? "");
   const [guardado, setGuardado] = useState(false);
+  const [errorProceso, setErrorProceso] = useState<string | null>(null);
 
   const [sugerencia, setSugerencia] = useState<SugerenciaIA | null>(null);
   const [errorIA, setErrorIA] = useState<string | null>(null);
@@ -360,7 +392,6 @@ function BonoTab({
     if (!sugerencia) return;
     const valor = sugerencia[LLAVE_SUGERENCIA_POR_SLIDER[sliderId]].valor_1_a_5;
     setValores((v) => ({ ...v, [sliderId]: valor }));
-
   }
 
   // Se recalcula al vuelo cada vez que se mueve un slider, usando el mismo
@@ -380,8 +411,13 @@ function BonoTab({
 
   function guardar() {
     setGuardado(false);
+    setErrorProceso(null);
     startTransition(async () => {
-      await guardarBonificacionManual(postulacionId, valores, comentario);
+      const res = await guardarBonificacionManual(postulacionId, valores, comentario);
+      if (res.error) {
+        setErrorProceso(res.error);
+        return;
+      }
       setGuardado(true);
       router.refresh();
     });
@@ -393,7 +429,6 @@ function BonoTab({
         <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 mb-4">
           <p className="text-sm text-amber-800">
             <strong>El administrador/a marcó este proyecto como &quot;sin potencial dinámico&quot;.</strong>{" "}
-
             Por eso, en el resultado final la bonificación de este proyecto se suma como 0, sin importar
             los factores automáticos ni las calificaciones del panel. Esto no cambia nada para ti: puedes
             seguir calificando y guardando los factores cualitativos con total normalidad, tal como
@@ -426,7 +461,6 @@ function BonoTab({
           <div className="metric-label">Alineación sectorial</div>
           <div className="metric-value text-lg">
             {resumenAutomatico.sector_industria ?? "—"}
-
           </div>
           <p className="text-xs text-gris-muted mt-1">
             {sinPotencialDinamico
@@ -459,7 +493,6 @@ function BonoTab({
             disabled={isPendingIA}
             className="btn-primary text-sm"
           >
-
             {isPendingIA ? "Generando sugerencia..." : "Generar sugerencia con IA"}
           </button>
           {errorIA ? (
@@ -483,7 +516,8 @@ function BonoTab({
                 max={5}
                 value={valores[factor.id]}
                 onChange={(e) => setValores((v) => ({ ...v, [factor.id]: Number(e.target.value) }))}
-                className="w-full"
+                disabled={procesoCerrado}
+                className="w-full disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <div className="flex justify-between text-xs text-gris-muted">
                 <span>1 = {factor.ancla1}</span>
@@ -492,7 +526,6 @@ function BonoTab({
               </div>
               {sugerenciaFactor ? (
                 <div className="mt-2 rounded-lg border border-gris-borde bg-gris-fondo p-2.5 text-xs">
-
                   <p className="text-gris-texto">
                     <strong>Sugerencia IA: {sugerenciaFactor.valor_1_a_5}/5.</strong>{" "}
                     {sugerenciaFactor.justificacion}
@@ -516,15 +549,24 @@ function BonoTab({
         onChange={(e) => setComentario(e.target.value)}
         placeholder="Justificación de estas calificaciones (opcional)"
         rows={2}
-        className="w-full rounded-lg border border-gris-borde px-3 py-2 text-sm mb-4"
+        disabled={procesoCerrado}
+        className="w-full rounded-lg border border-gris-borde px-3 py-2 text-sm mb-4 disabled:opacity-60 disabled:cursor-not-allowed"
       />
 
       {guardado ? <p className="text-sm text-green-700 mb-2">Bonificación cualitativa guardada.</p> : null}
+      {errorProceso ? (
+        <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+          {errorProceso}
+        </p>
+      ) : null}
 
-      <button onClick={guardar} disabled={isPending} className="btn-primary mb-5">
-        {isPending ? "Guardando..." : "Guardar bonificación cualitativa"}
+      <button onClick={guardar} disabled={isPending || procesoCerrado} className="btn-primary mb-5">
+        {procesoCerrado
+          ? "Proceso cerrado — no se puede guardar"
+          : isPending
+          ? "Guardando..."
+          : "Guardar bonificación cualitativa"}
       </button>
-
 
       <div className="metric-card">
         <div className="metric-label">Bonificación total estimada (máx. {puntajeMaximoBono} pts)</div>
