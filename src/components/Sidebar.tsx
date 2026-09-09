@@ -23,6 +23,7 @@ export function Sidebar({
   const items = [...NAV_ITEMS];
   if (usuario?.rol === "admin") {
     items.push({ href: "/seguimiento", label: "Seguimiento", icon: "📈" });
+    items.push({ href: "/ranking-ia", label: "Ranking IA", icon: "🤖" });
     items.push({ href: "/configuracion", label: "Configuración", icon: "⚙️" });
   }
 
