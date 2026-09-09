@@ -30,7 +30,6 @@ export async function importarPostulaciones(
   await requerirAdmin();
 
   let existentes = new Set<string>();
-
   if (evitarDuplicados) {
     const rows = await sql<{ run: string | null; correo: string | null }[]>`
       select run, correo from postulaciones
@@ -63,7 +62,6 @@ export async function importarPostulaciones(
     const correo = val(fila, "correo");
     const clave = `${run ?? ""}|${correo ?? ""}`;
     if (evitarDuplicados && (run || correo) && existentes.has(clave)) {
-
       omitidas++;
       continue;
     }
@@ -96,7 +94,6 @@ export async function importarPostulaciones(
         ${val(fila, "descripcion")}, ${val(fila, "propuesta_valor")},
         ${val(fila, "ha_levantado_financiamiento")}, ${val(fila, "detalle_financiamiento")}, ${val(fila, "cree_que_es_innovacion")},
         ${val(fila, "por_que_innovador")}, ${val(fila, "tipo_potencial_innovador")}, ${val(fila, "tipo_innovacion")}, ${val(fila, "alcance_innovacion")},
-
         ${val(fila, "sector_area_impacto")}, ${val(fila, "resultados_3_anios")}, ${val(fila, "impacto_esperado")}, ${numEquipo},
         ${val(fila, "descripcion_equipo")}, ${val(fila, "video_link")}, ${val(fila, "video_link_alternativo")}, ${val(fila, "video_password")}, ${JSON.stringify(fila)}
       )
@@ -129,7 +126,6 @@ export async function importarPostulaciones(
  * Por seguridad, cada campo se actualiza con "coalesce(nuevo, actual)": si
  * para una fila y un campo el CSV no trae dato (columna sin mapear, o vacía
  * en esa fila puntual), se conserva el valor que ya estaba guardado -- no se
-
  * borra ni se deja en blanco. Si el campo sí trae dato, se reemplaza por el
  * valor del CSV (pensado para corregir justamente los campos que quedaron
  * mal importados la primera vez).
@@ -163,7 +159,6 @@ export async function actualizarPostulacionesDesdeCsv(
     return null;
   }
 
-
   let actualizadas = 0;
   let sinCoincidencia = 0;
 
@@ -195,7 +190,6 @@ export async function actualizarPostulacionesDesdeCsv(
         apellido_materno = coalesce(${val(fila, "apellido_materno")}, apellido_materno),
         run = coalesce(${run}, run),
         fecha_nacimiento = coalesce(${val(fila, "fecha_nacimiento")}, fecha_nacimiento),
-
         genero = coalesce(${val(fila, "genero")}, genero),
         telefono = coalesce(${val(fila, "telefono")}, telefono),
         residencia_tipo = coalesce(${val(fila, "residencia_tipo")}, residencia_tipo),
@@ -228,7 +222,6 @@ export async function actualizarPostulacionesDesdeCsv(
         video_link_alternativo = coalesce(${val(fila, "video_link_alternativo")}, video_link_alternativo),
         video_password = coalesce(${val(fila, "video_password")}, video_password),
         raw_json = ${JSON.stringify(fila)}
-
       where id = ${id}
     `;
     actualizadas++;
@@ -260,7 +253,6 @@ export async function eliminarTodasLasPostulaciones(confirmacion: string): Promi
   if (confirmacion !== "ELIMINAR") {
     throw new Error('Escribe exactamente "ELIMINAR" para confirmar.');
   }
-
 
   const [{ total }] = await sql<{ total: number }[]>`select count(*)::int as total from postulaciones`;
 
@@ -295,7 +287,6 @@ export async function crearEvaluador(
   }
 }
 
-
 export async function cambiarEstadoEvaluador(id: number, activo: boolean): Promise<void> {
   await requerirAdmin();
   await actualizarEstadoUsuario(id, activo);
@@ -321,13 +312,32 @@ export async function cambiarInclusionEnResultados(id: number, incluido: boolean
   revalidatePath("/configuracion");
 }
 
+/**
+ * Cierra o reabre el proceso de evaluación completo (Configuración → 🔒
+ * Cierre del proceso). Mientras está cerrado, NINGÚN usuario -- ni
+ * evaluador/a ni administrador/a -- puede guardar evaluaciones de etapas ni
+ * bonificación cualitativa desde la pantalla Evaluación: ver
+ * procesoEvaluacionCerrado en config-store.ts y las validaciones agregadas
+ * en actions/evaluacion.ts. No se borra ni se modifica ninguna evaluación o
+ * bonificación ya guardada, y la acción es completamente reversible:
+ * reabrir el proceso en cualquier momento devuelve todo a la normalidad sin
+ * pérdida de datos.
+ */
+export async function cambiarCierreProceso(cerrado: boolean): Promise<void> {
+  await requerirAdmin();
+  const config = await getConfig<{ cerrado?: boolean }>("proceso_evaluacion");
+  await setConfig("proceso_evaluacion", { ...config, cerrado });
+  revalidatePath("/evaluacion");
+  revalidatePath("/configuracion");
+  revalidatePath("/seguimiento");
+}
+
 // --------------------------------- Bonificación / pesos ----------------------
 
 export async function guardarConfigBonificacion(
   activa: boolean,
   puntajeMaximo: number,
   factores: FactorBonificacion[]
-
 ): Promise<void> {
   await requerirAdmin();
   const config = await getConfig<{ activa?: boolean; puntaje_maximo?: number; factores?: FactorBonificacion[] }>(
@@ -360,7 +370,6 @@ export async function guardarPesoEtapas(pesoEtapa2: number, pesoEtapa3: number):
  * Word de Seguimiento.
  */
 export async function guardarSinPotencialDinamico(postulacionId: number, valor: boolean): Promise<void> {
-
   await requerirAdmin();
   await sql`update postulaciones set sin_potencial_dinamico = ${valor} where id = ${postulacionId}`;
   revalidatePath("/seguimiento");
@@ -393,5 +402,4 @@ export async function cambiarMiPassword(nuevaPassword: string): Promise<{ error?
   }
   await cambiarPassword(Number(session.user.id), nuevaPassword);
   return {};
-
 }
