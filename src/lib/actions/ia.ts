@@ -9,6 +9,15 @@ import {
   generarEvaluacionCompletaIA as generarEvaluacionCompletaIAInterna,
   type EvaluacionCompletaIA,
 } from "@/lib/ai-evaluacion-completa";
+import { generarYGuardarRankingIA, borrarRankingIA as borrarRankingIAInterna } from "@/lib/ai-ranking";
+
+async function requerirAdmin() {
+  const session = await auth();
+  if (!session?.user || session.user.rol !== "admin") {
+    throw new Error("No tienes permisos de administrador/a.");
+  }
+  return session.user;
+}
 
 // Ambas funciones de IA de abajo devuelven este tipo de resultado en vez de
 // lanzar ("throw") un error. Es a propósito: en producción, Next.js oculta
@@ -94,12 +103,69 @@ export async function generarEvaluacionCompletaIA(
  * Activa o desactiva la función de sugerencias con IA. Solo administradores.
  */
 export async function guardarConfigIA(activa: boolean): Promise<void> {
-  const session = await auth();
-  if (!session?.user || session.user.rol !== "admin") {
-    throw new Error("No tienes permisos de administrador/a.");
-  }
+  await requerirAdmin();
   const config: ConfigIA = { activa };
   await setConfig("ia_sugerencia", config);
   revalidatePath("/configuracion");
   revalidatePath("/evaluacion");
+}
+
+// --------------------------------- Ranking IA (informativo) ------------------
+//
+// Genera, para TODAS las postulaciones, la misma "Evaluación Auxiliar IA" que
+// ya existe por postulación (arriba), y las ordena con la misma fórmula que
+// usa el ranking oficial -- solo para que el administrador/a tenga una
+// referencia rápida de cómo se vería un ranking basado en lo que la IA puede
+// leer del texto de cada postulación. NUNCA toca evaluaciones ni
+// bonificaciones_manuales, ni afecta en nada el ranking oficial de
+// Resultados: ver ai-ranking.ts.
+
+/**
+ * Genera y guarda el resultado IA de UNA sola postulación (se llama en un
+ * bucle, una por una, desde RankingIATabla.tsx -- ver el comentario en
+ * ai-ranking.ts sobre por qué se procesa así en vez de todas de un golpe).
+ * Exclusivo de administrador/a.
+ */
+export async function generarRankingIAPostulacion(postulacionId: number): Promise<ResultadoIA<void>> {
+  try {
+    await requerirAdmin();
+
+    const activa = await iaSugerenciaActiva();
+    if (!activa) {
+      return {
+        ok: false,
+        error:
+          "La función de sugerencias con IA está desactivada. Un administrador/a puede activarla en Configuración → IA.",
+      };
+    }
+
+    await generarYGuardarRankingIA(postulacionId);
+    revalidatePath("/ranking-ia");
+    return { ok: true, data: undefined };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "No se pudo generar el Ranking IA para esta postulación.",
+    };
+  }
+}
+
+/**
+ * Borra TODO el Ranking IA guardado hasta ahora (no toca ningún dato real:
+ * ni postulaciones, ni evaluaciones, ni bonificaciones_manuales). Se usa
+ * antes de "Regenerar todo desde cero", para volver a calcular cada
+ * postulación con el texto y la configuración actuales.
+ */
+export async function borrarRankingIA(): Promise<ResultadoIA<void>> {
+  try {
+    await requerirAdmin();
+    await borrarRankingIAInterna();
+    revalidatePath("/ranking-ia");
+    return { ok: true, data: undefined };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "No se pudo borrar el Ranking IA.",
+    };
+  }
 }
