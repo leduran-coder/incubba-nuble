@@ -6,6 +6,7 @@ import { EvaluadoresTab } from "@/components/configuracion/EvaluadoresTab";
 import { BonificacionTab } from "@/components/configuracion/BonificacionTab";
 import { PesosTab } from "@/components/configuracion/PesosTab";
 import { IATab } from "@/components/configuracion/IATab";
+import { CierreProcesoTab } from "@/components/configuracion/CierreProcesoTab";
 import { CuentaTab } from "@/components/configuracion/CuentaTab";
 import type { Usuario } from "@/lib/types";
 import type { FactorBonificacion } from "@/lib/rubric";
@@ -16,6 +17,7 @@ const TABS = [
   "🚀 Bonificación",
   "⚖️ Pesos entre etapas",
   "🤖 Sugerencias con IA",
+  "🔒 Cierre del proceso",
   "🔑 Mi cuenta",
 ];
 
@@ -26,6 +28,7 @@ export function ConfiguracionTabs({
   pesoEtapas,
   sectoresEstrategicos,
   iaActiva,
+  procesoCerrado,
 }: {
   usuarios: Usuario[];
   usuarioActual: { nombre: string; email: string };
@@ -33,6 +36,7 @@ export function ConfiguracionTabs({
   pesoEtapas: { etapa_2: number; etapa_3: number };
   sectoresEstrategicos: string[];
   iaActiva: boolean;
+  procesoCerrado: boolean;
 }) {
   const [tab, setTab] = useState(0);
 
@@ -64,7 +68,8 @@ export function ConfiguracionTabs({
       ) : null}
       {tab === 3 ? <PesosTab pesoEtapa2Inicial={pesoEtapas.etapa_2} pesoEtapa3Inicial={pesoEtapas.etapa_3} /> : null}
       {tab === 4 ? <IATab activaInicial={iaActiva} /> : null}
-      {tab === 5 ? <CuentaTab nombre={usuarioActual.nombre} email={usuarioActual.email} /> : null}
+      {tab === 5 ? <CierreProcesoTab cerradoInicial={procesoCerrado} /> : null}
+      {tab === 6 ? <CuentaTab nombre={usuarioActual.nombre} email={usuarioActual.email} /> : null}
     </div>
   );
 }
